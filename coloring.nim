@@ -17,8 +17,8 @@ proc `+=`*[C: enum, S: static[int]](col: var Coloring[C, S], amt: int) =
         var overflow = false
         for n in 0 ..< S:
             let s = ((amt shr n) and 1) + cast[int](overflow) + col[n].ord
-            col[n] = C(s mod 2)
-            overflow = s >= 2
+            col[n] = cast[C](s mod 2)
+            overflow = s > 1
     else:
         const count = C.high.ord + 1
         var overflow = amt
@@ -38,24 +38,39 @@ proc `$`*[C: enum, S: static[int]](col: Coloring[C, S]): string =
 
 
 when isMainModule:
-    import bmark
-
-    type Col = enum c0, c1
+    type TwoCol = enum c0, c1
     const len = 16 # Length of sequence
-    var col = initColoring[Col, len]()
+    var twocol = initColoring[TwoCol, len]()
+
+    # First, verify that behavior is correct
+    import random
+    randomize()
+
+    var comp: uint64 = 0
+    for _ in 0 ..< 1000:
+        let val = rand(2^len)
+        comp += val.uint64
+        twocol += val
+
+        # Assert that `comp` and `twoocol` match
+        for i in 0 ..< len:
+            assert(((comp shr i) and 1) == twocol[i].ord.uint64)
+    
+    # Then, benchmark
+    import bmark
 
     let incsizes = toSeq(1 .. 2^len)
     let inccounts = incsizes.map(proc(incsize: int): int = return ((2^len) div incsize))
 
-    benchmark("two-coloring", trials = 100):
+    benchmark("two-coloring", trials = 20):
         discard
     do:
         for i, incsize in incsizes:
             # Test incrementing with all values from 1 to 2^len, which is an instant overflow
             for _ in 0 ..< inccounts[i]:
                 # Increment enough times for overflow
-                col += incsize
+                twocol += incsize
     do:
         for i in 0 ..< len:
-            col[i] = c0
+            twocol[i] = c0
 
