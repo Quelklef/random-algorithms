@@ -5,7 +5,7 @@ import strutils
 import stats
 
 # Adapted from https://stackoverflow.com/questions/36577570/how-to-benchmark-few-lines-of-code-in-nim
-template benchmark*(benchmarkName: string, trials, before: typed, code: typed, after: typed) =
+template benchmark*(benchmarkName: string, trials: int, before, code, after: typed) =
     ## `before` and `after` run before and after each trial but are not timed
     var rs: RunningStat
     var total = 0.0
