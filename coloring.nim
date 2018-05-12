@@ -17,7 +17,7 @@ proc `+=`*[C: enum, S: static[int]](col: var Coloring[C, S], amt: int) =
         var overflow = false
         for n in 0 ..< S:
             let s = ((amt shr n) and 1) + cast[int](overflow) + col[n].ord
-            col[n] = cast[C](s mod 2)
+            col[n] = cast[C](s == 1 or s == 3)
             overflow = s > 1
     else:
         const count = C.high.ord + 1
@@ -73,4 +73,5 @@ when isMainModule:
     do:
         for i in 0 ..< len:
             twocol[i] = c0
+
 
