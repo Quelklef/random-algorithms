@@ -33,7 +33,7 @@ proc increment[C: enum, S: static[int]](col: var Coloring[C, S]) =
     when C.high.ord == 1 and not defined(noTwoColorOptim): # two-colorings
         for n in 0 ..< S:
             col[n] = cast[C](not cast[bool](col[n]))
-            if not cast[bool](col[n]): return
+            if cast[bool](col[n]): return
     else:
         for n in 0 ..< S:
             if col[n] == C.high:
