@@ -46,13 +46,16 @@ when isMainModule:
 
     let incsizes = toSeq(1 .. 2^len)
     let inccounts = incsizes.map(proc(incsize: int): int = return ((2^len) div incsize))
+
     benchmark("two-coloring", trials = 100):
+        discard
+    do:
         for i, incsize in incsizes:
             # Test incrementing with all values from 1 to 2^len, which is an instant overflow
             for _ in 0 ..< inccounts[i]:
                 # Increment enough times for overflow
                 col += incsize
-            # At end, reset
-            for i in 0 ..< len:
-                col[i] = c0
+    do:
+        for i in 0 ..< len:
+            col[i] = c0
 
