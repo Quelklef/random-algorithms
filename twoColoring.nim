@@ -47,7 +47,7 @@ proc `+=`*[S](col: var TwoColoring[S], amt: uint64) =
     var overflow = amt
     for i in 0 ..< K(col):
         let prev = col.uints[i]
-        col.muints[i] += overflow  # Mutating uint64 so can't use col{0}
+        col.muints[i] += overflow
         if overflow > uint64.high - prev: # If overflowed
             overflow = 1
         else:
