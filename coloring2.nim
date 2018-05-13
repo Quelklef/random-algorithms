@@ -1,4 +1,8 @@
+
 import macros
+
+import twoColoring
+import nColoring
 
 macro coloringImpl(N: static[int], S: untyped): untyped =
     if N == 2:
@@ -14,16 +18,21 @@ type Coloring[N, S: static[int]] = object
     data: coloringImpl(N, S)
 
 template exportCol(function: untyped, ResultType: untyped): untyped =
-    proc `function`*(x, y: Col): ResultType {.inline.} =
-        when ResultType is Col:
+    proc `function`*(x, y: Coloring): ResultType =
+        when ResultType is Coloring:
             result.data = function(x.data, y.data)
         else:
             function(x.data, y.data)
 
-proc `+`[N, S](x, y: Coloring[N, S]): Coloring[N, S] =
+proc `+`*(x, y: Coloring): Coloring =
     echo x
     echo y
     return x
-exportCol(x, y)
 
+exportCol(`+`, Coloring)
+
+var a: Coloring[2, 100]
+var b: Coloring[3, 100]
+
+discard a + b
 
