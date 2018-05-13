@@ -9,7 +9,6 @@ proc initColoring*[C, S](): Coloring[C, S] =
     discard
 
 proc `+=`*[C, S](col: var Coloring[C, S], amt: int) =
-    # TODO: Should be able to return before completing full loop
     var overflow = amt
     for n in 0 ..< S:
         if overflow == 0:
