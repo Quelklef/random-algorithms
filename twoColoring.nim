@@ -10,14 +10,14 @@ proc iceil(x: float64): int = return int(x.ceil)
 
 type TwoColoring*[S: static[int]] = distinct array[iceil(S / 64), uint64]
 
-template K[S](col: TwoColoring[S]): int = iceil(S / 64) # The number of contained uint64s
+template uintc[S](col: TwoColoring[S]): int = iceil(S / 64) # The number of contained uint64s
 
 template uints[S](col: TwoColoring[S]): auto =
     ## Allow for access of underlying uints
-    cast[array[K(col), uint64]](col)
+    cast[array[uintc(col), uint64]](col)
 template muints[S](col: TwoColoring[S]): auto =
     ## Allow for mutation of underlying uints
-    array[K(col), uint64](col)
+    array[uintc(col), uint64](col)
 
 proc `$`*[S](col: TwoColoring[S], on = "1", off = "0"): string =
     result = ""
@@ -43,7 +43,7 @@ proc `[]=`*[S](col: var TwoColoring[S], i: range[0 .. S - 1], val: range[0 .. 1]
 
 proc `+=`*[S](col: var TwoColoring[S], amt: uint64) =
     var overflow = amt
-    for i in 0 ..< K(col):
+    for i in 0 ..< uintc(col):
         let prev = col.uints[i]
         col.muints[i] += overflow
         if overflow > uint64.high - prev: # If overflowed
