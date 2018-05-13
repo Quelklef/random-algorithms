@@ -3,12 +3,13 @@ import strutils
 import sequtils
 import math
 
-type Coloring*[C, S: static[int]] = array[S, range[0 .. C - 1]]
+# TODO: Make distinct?
+type NColoring*[C, S: static[int]] = array[S, range[0 .. C - 1]]
 
-proc initColoring*[C, S](): Coloring[C, S] =
+proc initNColoring*[C, S](): NColoring[C, S] =
     discard
 
-proc `+=`*[C, S](col: var Coloring[C, S], amt: int) =
+proc `+=`*[C, S](col: var NColoring[C, S], amt: int) =
     var overflow = amt
     for n in 0 ..< S:
         if overflow == 0:
@@ -18,7 +19,7 @@ proc `+=`*[C, S](col: var Coloring[C, S], amt: int) =
         col[n] = X mod C
         overflow = X div C
 
-proc `$`*[C, S](col: Coloring[C, S]): string =
+proc `$`*[C, S](col: NColoring[C, S]): string =
     assert(C <= 9)
     result = ""
     for item in col:

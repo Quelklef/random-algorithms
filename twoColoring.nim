@@ -18,7 +18,7 @@ template muints[S](col: TwoColoring[S]): auto =
     ## Allow for mutation of underlying uints
     array[K(col), uint64](col)
 
-proc `$`[S](col: TwoColoring[S], on = "1", off = "0"): string =
+proc `$`*[S](col: TwoColoring[S], on = "1", off = "0"): string =
     result = ""
     var isfirst = true
     for i, ui in uints(col):
