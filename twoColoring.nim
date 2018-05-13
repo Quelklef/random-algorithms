@@ -31,18 +31,16 @@ proc `$`[S](col: TwoColor[S], on = "1", off = "0"): string =
                 break
             result &= (if 1'u64 == ((ui shr dig) and 1): on else: off)
 
-proc initTwoColor[S: static[int]](): TwoColor[S] =
+proc initTwoColor*[S: static[int]](): TwoColor[S] =
     discard
 
-proc `[]`*[S](col: TwoColor[S], i: int): bool =
-    when not defined(release): assert(i < S)
-    return cast[bool](col.uints[i div 64] shr (i mod 64))
+proc `[]`*[S](col: TwoColor[S], i: range[0 .. S - 1]): range[0 .. 1] =
+    return col.uints[i div 64] shr (i mod 64)
 
-proc `[]=`*[S](col: var TwoColor[S], i: int, val: bool) =
-    when not defined(release): assert(i < S)
-    if val:
+proc `[]=`*[S](col: var TwoColor[S], i: range[0 .. S - 1], val: range[0 .. 1]) =
+    if val == 1:
         col.muints[i div 64] = col.uints[i div 64] or      (1'u64 shl (i mod 64))
-    else:
+    else: # val == 0
         col.muints[i div 64] = col.uints[i div 64] and not (1'u64 shl (i mod 64))
 
 proc `+=`*[S](col: var TwoColor[S], amt: uint64) =
@@ -54,5 +52,4 @@ proc `+=`*[S](col: var TwoColor[S], amt: uint64) =
             overflow = 1
         else:
             break
-
 
