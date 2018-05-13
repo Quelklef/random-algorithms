@@ -6,16 +6,13 @@ import math
 # TODO: Make distinct?
 type NColoring*[C, S: static[int]] = array[S, range[0 .. C - 1]]
 
-proc initNColoring*[C, S](): NColoring[C, S] =
-    discard
-
-proc `+=`*[C, S](col: var NColoring[C, S], amt: int) =
+proc `+=`*[C, S](col: var NColoring[C, S], amt: uint64) =
     var overflow = amt
     for n in 0 ..< S:
         if overflow == 0:
             return
 
-        let X = col[n] + overflow
+        let X = cast[uint64](col[n]) + overflow
         col[n] = X mod C
         overflow = X div C
 

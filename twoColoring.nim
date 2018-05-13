@@ -9,6 +9,7 @@ proc iceil(x: float32): int = return int(x.ceil)
 proc iceil(x: float64): int = return int(x.ceil)
 
 type TwoColoring*[S: static[int]] = distinct array[iceil(S / 64), uint64]
+
 template K[S](col: TwoColoring[S]): int = iceil(S / 64) # The number of contained uint64s
 
 template uints[S](col: TwoColoring[S]): auto =
@@ -30,9 +31,6 @@ proc `$`*[S](col: TwoColoring[S], on = "1", off = "0"): string =
             if i * 64 + dig >= S:
                 break
             result &= (if 1'u64 == ((ui shr dig) and 1): on else: off)
-
-proc initTwoColoring*[S: static[int]](): TwoColoring[S] =
-    discard
 
 proc `[]`*[S](col: TwoColoring[S], i: range[0 .. S - 1]): range[0 .. 1] =
     return col.uints[i div 64] shr (i mod 64)
