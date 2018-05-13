@@ -28,7 +28,7 @@ proc `+=`*[C: enum, S: static[int]](col: var Coloring[C, S], amt: int) =
             col[n] = cast[C]((val + overflow) mod count)
             overflow = (val + overflow) div count
 
-proc increment[C: enum, S: static[int]](col: var Coloring[C, S]) =
+proc increment*[C: enum, S: static[int]](col: var Coloring[C, S]) =
     ## Functionally equivalent to `+= 1`, but significantly faster
     when C.high.ord == 1 and not defined(noTwoColorOptim): # two-colorings
         for n in 0 ..< S:
@@ -51,4 +51,31 @@ proc `$`*[C: enum, S: static[int]](col: Coloring[C, S]): string =
             result &= ", " & $item
     result &= "]"
 
+
+when isMainModule:
+    import benchmark
+
+    type TC = enum tce0, tce1
+    const s = 16
+    const trials = 1000
+
+    var tc0 = 0.uint64
+    var tc1 = initColoring[TC, s]()
+
+    benchmark("uint64", trials = trials):
+        discard
+    do:
+        for _ in 0 ..< 2^s:
+            tc0 += 3
+    do:
+        tc0 = 0.uint64
+
+    benchmark("coloring", trials = trials):
+        discard
+    do:
+        for _ in 0 ..< 2^s:
+            tc1 += 3
+    do:
+        for i in 0 ..< s:
+            tc1[i] = tce0
 
