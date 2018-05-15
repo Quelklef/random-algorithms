@@ -33,21 +33,15 @@ proc `$`*[S](col: TwoColoring[S], on = "1", off = "0"): string =
             result &= (if 1'u64 == ((ui shr dig) and 1): on else: off)
 
 proc `[]`*[S](col: TwoColoring[S], i: range[0 .. S - 1]): range[0 .. 1] =
-    return col.uints[i div 64] shr (i mod 64)
+    return 1'u64 and col.uints[i div 64] shr (i mod 64)
 
 proc `[]=`*[S](col: var TwoColoring[S], i: range[0 .. S - 1], val: range[0 .. 1]) =
     if val == 1:
-        col.muints[i div 64] = col.uints[i div 64] or      (1'u64 shl (i mod 64))
+        col.muints[i div 64] = col.uints[i div 64] or      1'u64 shl (i mod 64)
     else: # val == 0
-        col.muints[i div 64] = col.uints[i div 64] and not (1'u64 shl (i mod 64))
+        col.muints[i div 64] = col.uints[i div 64] and not 1'u64 shl (i mod 64)
 
 proc `+=`*[S](col: var TwoColoring[S], amt: uint64) =
-    var overflow = amt
-    for i in 0 ..< uintc(col):
-        let prev = col.uints[i]
-        col.muints[i] += overflow
-        if overflow > uint64.high - prev: # If overflowed
-            overflow = 1
-        else:
-            break
+    col.muints[0] += amt
+    col.muints[1] += (col.uints[0] < amt).uint64
 
