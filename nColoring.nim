@@ -2,6 +2,7 @@
 import strutils
 import sequtils
 import math
+import hashes
 
 # TODO: Make distinct?
 type NColoring*[C, S: static[int]] = array[S, range[0 .. C - 1]]
@@ -21,4 +22,7 @@ proc `$`*[C, S](col: NColoring[C, S]): string =
     result = ""
     for item in col:
         result &= $item
+
+proc hash*[C, S](col: NColoring[C, S]): Hash =
+    assert false # unimplemented, fuckers
 

@@ -1,6 +1,7 @@
 
 import strutils
 import math
+import hashes
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
@@ -18,6 +19,9 @@ template uints[S](col: TwoColoring[S]): auto =
 template muints[S](col: TwoColoring[S]): auto =
     ## Allow for mutation of underlying uints
     array[uintc(col), uint64](col)
+
+proc `==`*[S](colA, colB: TwoColoring[S]): bool =
+    return colA.uints == colB.uints
 
 proc `$`*[S](col: TwoColoring[S], on = "1", off = "0"): string =
     result = ""
@@ -43,5 +47,11 @@ proc `[]=`*[S](col: var TwoColoring[S], i: range[0 .. S - 1], val: range[0 .. 1]
 
 proc `+=`*[S](col: var TwoColoring[S], amt: uint64) =
     col.muints[0] += amt
-    col.muints[1] += (col.uints[0] < amt).uint64
+    when uintc(col) > 1:
+        col.muints[1] += (col.uints[0] < amt).uint64
+
+proc hash*[S](col: TwoColoring[S]): Hash =
+    for ui in uints(col):
+        result = result !& hash(ui)
+    result = !$result
 

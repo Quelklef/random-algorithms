@@ -2,18 +2,22 @@
 import twoColoring
 import nColoring
 
+export TwoColoring
+export NColoring
+
+import hashes
 import macros
 
-macro coloringImpl(C: static[int], S: untyped): untyped =
+macro coloringImpl*(C: static[int], S: untyped): untyped =
     if C == 2:
         return nnkBracketExpr.newTree(ident("TwoColoring"), S)
     else:
         return nnkBracketExpr.newTree(ident("NColoring"), newIntLitNode(C), S)
 
-type Coloring[C, S: static[int]] = object
-    data: coloringImpl(C, S)
+type Coloring*[C, S: static[int]] = object
+    data*: coloringImpl(C, S)
 
-proc initColoring[C, S](): Coloring[C, S] =
+proc initColoring*[C, S](): Coloring[C, S] =
     discard
 
 template export_varColoring_uint64_void(function: untyped): untyped =
@@ -29,8 +33,8 @@ template export_Coloring_range_0S_range_0C(function: untyped): untyped =
 export_Coloring_range_0S_range_0C(`[]`)
 
 template export_varColoring_range_0S_range_0C_void(function: untyped): untyped =
-    proc `function`*[C, S](col: Coloring[C, S], i: range[0 .. S - 1], val: range[0 .. C - 1]) {.inline.} =
-        return function(col.data, i, val)
+    proc `function`*[C, S](col: var Coloring[C, S], i: range[0 .. S - 1], val: range[0 .. C - 1]) {.inline.} =
+        function(col.data, i, val)
 
 export_varColoring_range_0S_range_0C_void(`[]=`)
 
@@ -39,6 +43,18 @@ template export_Coloring_string(function: untyped): untyped =
         return function(col.data)
 
 export_Coloring_string(`$`)
+
+template export_Coloring_Hash(function: untyped): untyped =
+    proc `function`*[C, S](col: Coloring[C, S]): Hash {.inline.} =
+        return function(col.data)
+
+export_Coloring_Hash(hash)
+
+template export_Coloring_Coloring_bool(function: untyped): untyped =
+    proc `function`*[C, S](colA, colB: Coloring[C, S]): bool {.inline.} =
+        return function(colA.data, colB.data)
+
+export_Coloring_Coloring_bool(`==`)
 
 when isMainModule:
     import typetraits
