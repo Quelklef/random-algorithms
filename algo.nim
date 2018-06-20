@@ -54,8 +54,8 @@ when isMainModule:
     const N = 30
 
     var col = initColoring[2, N]()
-    benchmark("K = $#, N = $#" % [$K, $N], trials=1):
-        while true:
+    benchmark("K = $#, N = $#" % [$K, $N], trials=100):
+        for n in 1..10^4:
             randomize(col)
             echo(col)
 
