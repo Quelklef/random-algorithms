@@ -1,6 +1,8 @@
 
 import math
 import strutils
+import random
+import options
 
 import coloring
 
@@ -16,39 +18,49 @@ iterator skip[T](a, step: T, n: int): T =
         yield x
         x += step
 
-proc cmas*[C, S](coloring: Coloring[C, S], K: int): bool =
-    ## Contains monochromatic arithmetic subseq of size K
+proc mas*[C, S](coloring: Coloring[C, S], K: int): Option[Coloring[C, S]] =
+    ## Find monochromatic arithmetic subseq of size K
     var col = coloring
-    for padSize in 0 .. (S - C) div (K - 1):
-        for startLoc in 0 .. S - 1 - K - (K - 1) * padSize:
+    # Iterate over step sizes, which is the distance between each item in the MAS
+    for stepSize in 1 .. (S - 1) div (K - 1):
+        #echo("ss=$#" % $stepSize)
+        for startLoc in 0 .. S - (K - 1) * stepSize - 1:
             block skipping:
+                #echo("\t", startLoc, "..", startLoc + (K-1) * stepSize)
                 let expectedColor = col[startLoc] # The expected color for the sequence
-                for i in skip(startLoc + padSize + 1, padSize + 1, K - 1):
+                for i in skip(startLoc, stepSize, K):
                     if col[i] != expectedColor:
                         break skipping # Go to next start loc
-                return true
-    return false
+
+                # If all were expected color
+                # Return a mask of the coloring
+                var mask = initColoring[C, S]()
+                for i in skip(startLoc, stepSize, K):
+                    mask[i] = 1
+                return some(mask)
+    return none(Coloring[C, S])
+
+# TODO: reimplement in twoColoring and nColoring .nim
+proc randomize*[C, S](col: var Coloring[C, S]) =
+    for i in 0 ..< S:
+        col[i] = rand(C - 1)
 
 when isMainModule:
     import benchmark
 
-    const len = 20
+    random.randomize()
 
-    const minK = 8
-    for K in minK .. len:
-        var color = initColoring[2, len]()
+    const K = 4
+    const N = 30
 
-        benchmark("K = $#" % $K, trials = 1):
-            discard
-        do:
-            var count = 0
-            for _ in 0 ..< 2^(len-1): # Only have to do half b.c after half are rotational repeats
-                if not cmas(color, K):
-                    count.inc
-                color += 1
-            count *= 2
+    var col = initColoring[2, N]()
+    benchmark("K = $#, N = $#" % [$K, $N], trials=1):
+        while true:
+            randomize(col)
+            echo(col)
 
-            echo("          [K = $#]: $# colorings with no MAS ($#%)" % [$K, $count, $formatFloat(count / 2^len * 100, precision = 5)])
-        do:
-            discard
+            let mas = col.mas(K)
+            if mas.isNone:
+                echo("none!")
+                break
 
