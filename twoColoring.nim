@@ -41,9 +41,9 @@ proc `[]`*[S](col: TwoColoring[S], i: range[0 .. S - 1]): range[0 .. 1] =
 
 proc `[]=`*[S](col: var TwoColoring[S], i: range[0 .. S - 1], val: range[0 .. 1]) =
     if val == 1:
-        col.muints[i div 64] = col.uints[i div 64] or      1'u64 shl (i mod 64)
+        col.muints[i div 64] = col.uints[i div 64] or      (1'u64 shl (i mod 64))
     else: # val == 0
-        col.muints[i div 64] = col.uints[i div 64] and not 1'u64 shl (i mod 64)
+        col.muints[i div 64] = col.uints[i div 64] and not (1'u64 shl (i mod 64))
 
 proc `+=`*[S](col: var TwoColoring[S], amt: uint64) =
     col.muints[0] += amt
