@@ -25,18 +25,17 @@ proc initTwoColoring*(N: int): TwoColoring =
     for _ in 0 .. (N div 64):
         result.data.add(0'u64)
 
-proc `==`*(colA, colB: TwoColoring): bool =
-    if colA.N != colB.N:
+proc `==`*(col0, col1: TwoColoring): bool =
+    if col0.N != col1.N:
         return false
 
-    for i in 0 ..< colA.data.len - 1:
-        if colA.data[i] != colB.data[i]:
+    for i in 0 ..< col0.data.len - 1:
+        if col0.data[i] != col1.data[i]:
             return false
 
-    let tailSize = (colA.data.len * 64) mod colA.N
-    let numIgnoreFromTail = 64 - tailSize
-    return (colA.data[colA.data.len - 1]) shr numIgnoreFromTail ==
-           (colB.data[colA.data.len - 1]) shr numIgnoreFromTail
+    let numIgnoreFromTail = (64 - (col0.N mod 64))
+    return (col0.data[col0.data.len - 1]) shl numIgnoreFromTail ==
+           (col1.data[col0.data.len - 1]) shl numIgnoreFromTail
 
 proc `[]`*(col: TwoColoring, i: int): range[0 .. 1]
 proc `$`*(col: TwoColoring): string =
