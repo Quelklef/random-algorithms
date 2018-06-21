@@ -93,3 +93,8 @@ proc extend*(col: var TwoColoring, amt: int): void =
 
     col.N += amt
 
+proc fromString*(val: string): TwoColoring =
+    result = initTwoColoring(val.len)
+    for index, chr in val:
+        result[index] = ord(chr) - ord('0')
+
