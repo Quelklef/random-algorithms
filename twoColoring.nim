@@ -46,15 +46,20 @@ proc `$`*(col: TwoColoring): string =
         result &= $col[i]
 
 proc `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
+    if i >= col.N:
+        raise newException(IndexError, "Index $# out of bounds" % $i)
     return 1'u64 and (col.data[i div 64] shr (i mod 64))
 
 proc `[]=`*(col: var TwoColoring, i: int, val: range[0 .. 1]) =
+    if i >= col.N:
+        raise newException(IndexError, "Index $# out of bounds" % $i)
     if val == 1:
         col.data[i div 64] = col.data[i div 64] or      (1'u64 shl (i mod 64))
     else: # val == 0
         col.data[i div 64] = col.data[i div 64] and not (1'u64 shl (i mod 64))
 
 proc `+=`*(col: var TwoColoring, amt: uint64) =
+    ## May overflow
     col.data[0] += amt
     if col.data.len > 1:
         col.data[1] += (col.data[0] < amt).uint64
@@ -79,10 +84,6 @@ when isMainModule:
 
     echo col0
     echo col1
-
-    # Should give out-of-bounds but doesn't
-    col0[5] = 1
-    col0[6] = 1
 
     for i in 0..4:
         col0[i] = 0
