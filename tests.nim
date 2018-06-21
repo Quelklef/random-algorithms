@@ -21,13 +21,14 @@ suite "Testing twoColoring":
     emptyTwoColoring = initTwoColoring(64)
     randomTwoColoring = initTwoColoring(64)
     randomize(randomTwoColoring)
-    echo "Random TwoColoring: ", $randomTwoColoring
-    fromStringColoring1 = fromString("11111")
+    fromStringColoring1 = fromString("10110")
     fromStringColoring2 = fromString("10110")
 
   teardown:
     echo "run after each test"
 
+  test "TwoColoring fromString":
+    check($fromStringColoring1 == "10110")
 
   test "TwoColoring ==":
     check(emptyTwoColoring == emptyTwoColoring)

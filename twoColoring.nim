@@ -69,7 +69,5 @@ proc randomize*(col: var TwoColoring): void =
 
 proc fromString*(val: string): TwoColoring =
     result = initTwoColoring(val.len)
-    for i in 0 .. result.data.len - 1:
-        result.data[i] = cast[uint64](ord(val[i]) - ord('0'))
-        echo cast[uint64](ord(val[i]) - ord('0'))
-    echo result
+    for index, chr in val:
+        result[index] = ord(chr) - ord('0')
