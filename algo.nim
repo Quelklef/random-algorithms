@@ -6,9 +6,9 @@ import options
 
 import coloring
 
-proc clear*[C, S](col: var Coloring[C, S]) =
+proc clear*[C](col: var Coloring[C]) =
     # TODO: Should be implemented per-implementation
-    for i in 0 ..< S:
+    for i in 0 ..< col.N:
         col[i] = 0
 
 iterator skip[T](a, step: T, n: int): T =
@@ -18,13 +18,13 @@ iterator skip[T](a, step: T, n: int): T =
         yield x
         x += step
 
-proc mas*[C, S](coloring: Coloring[C, S], K: int): Option[Coloring[C, S]] =
+proc mas*[C](coloring: Coloring[C], K: int): Option[Coloring[C]] =
     ## Find monochromatic arithmetic subseq of size K
     var col = coloring
     # Iterate over step sizes, which is the distance between each item in the MAS
-    for stepSize in 1 .. (S - 1) div (K - 1):
+    for stepSize in 1 .. (col.N - 1) div (K - 1):
         #echo("ss=$#" % $stepSize)
-        for startLoc in 0 .. S - (K - 1) * stepSize - 1:
+        for startLoc in 0 .. col.N - (K - 1) * stepSize - 1:
             block skipping:
                 #echo("\t", startLoc, "..", startLoc + (K-1) * stepSize)
                 let expectedColor = col[startLoc] # The expected color for the sequence
@@ -34,16 +34,11 @@ proc mas*[C, S](coloring: Coloring[C, S], K: int): Option[Coloring[C, S]] =
 
                 # If all were expected color
                 # Return a mask of the coloring
-                var mask = initColoring[C, S]()
+                var mask = initColoring[C]()
                 for i in skip(startLoc, stepSize, K):
                     mask[i] = 1
                 return some(mask)
-    return none(Coloring[C, S])
-
-# TODO: reimplement in twoColoring and nColoring .nim
-proc randomize*[C, S](col: var Coloring[C, S]) =
-    for i in 0 ..< S:
-        col[i] = rand(C - 1)
+    return none(Coloring[C])
 
 when isMainModule:
     import benchmark
@@ -51,16 +46,22 @@ when isMainModule:
     random.randomize()
 
     const K = 4
-    const N = 30
+    const N = 35
 
-    var col = initColoring[2, N]()
-    benchmark("K = $#, N = $#" % [$K, $N], trials=100):
-        for n in 1..10^4:
+    # TODO: off-by-one error
+    var flips = 0
+
+    var col: Coloring[2] = initColoring[2](N)
+    benchmark("K = $#, N = $#" % [$K, $N], trials=1):
+        while true:
             randomize(col)
-            echo(col)
+            flips.inc
+            #echo(col)
 
             let mas = col.mas(K)
             if mas.isNone:
                 echo("none!")
+                echo(col)
+                echo(flips)
                 break
 

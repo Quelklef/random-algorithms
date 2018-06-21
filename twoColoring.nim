@@ -2,6 +2,12 @@
 import strutils
 import math
 import hashes
+import random
+
+random.randomize()
+var localRand = initRand(rand(int.high))
+proc randu64(): uint64 =
+    return localRand.next()
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
@@ -9,49 +15,62 @@ template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
 proc iceil(x: float32): int = return int(x.ceil)
 proc iceil(x: float64): int = return int(x.ceil)
 
-type TwoColoring*[S: static[int]] = distinct array[iceil(S / 64), uint64]
+type TwoColoring* = object
+    N: int  # Size of coloring
+    data: seq[uint64]
 
-template uintc[S](col: TwoColoring[S]): int = iceil(S / 64) # The number of contained uint64s
+proc initTwoColoring*(N: int): TwoColoring =
+    result.N = N
+    result.data = @[]
+    for _ in 0 .. (N div 64):
+        result.data.add(0'u64)
 
-template uints[S](col: TwoColoring[S]): auto =
-    ## Allow for access of underlying uints
-    cast[array[uintc(col), uint64]](col)
-template muints[S](col: TwoColoring[S]): auto =
-    ## Allow for mutation of underlying uints
-    array[uintc(col), uint64](col)
+proc `==`*(colA, colB: TwoColoring): bool =
+    if colA.N != colB.N:
+        return false
 
-proc `==`*[S](colA, colB: TwoColoring[S]): bool =
-    return colA.uints == colB.uints
+    for i in 0 ..< colA.data.len - 1:
+        if colA.data[i] != colB.data[i]:
+            return false
 
-proc `$`*[S](col: TwoColoring[S], on = "1", off = "0"): string =
+    let tailSize = (colA.data.len * 64) mod colA.N
+    let numIgnoreFromTail = 64 - tailSize
+    return (colA.data[colA.data.len - 1]) shr numIgnoreFromTail ==
+           (colB.data[colA.data.len - 1]) shr numIgnoreFromTail
+
+proc `[]`*(col: TwoColoring, i: int): range[0 .. 1]
+proc `$`*(col: TwoColoring): string =
     result = ""
-    var isfirst = true
-    for i, ui in uints(col):
-        if isfirst:
-            isfirst = false
-        else:
-            result &= ":"
-        for dig in 0 ..< 64:
-            if i * 64 + dig >= S:
-                break
-            result &= (if 1'u64 == ((ui shr dig) and 1): on else: off)
+    for i in 0 ..< col.N:
+        # TODO: Optimize? `&=` is perhaps slow?
+        result &= $col[i]
 
-proc `[]`*[S](col: TwoColoring[S], i: range[0 .. S - 1]): range[0 .. 1] =
-    return 1'u64 and col.uints[i div 64] shr (i mod 64)
+proc `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
+    return 1'u64 and (col.data[i div 64] shr (i mod 64))
 
-proc `[]=`*[S](col: var TwoColoring[S], i: range[0 .. S - 1], val: range[0 .. 1]) =
+proc `[]=`*(col: var TwoColoring, i: int, val: range[0 .. 1]) =
     if val == 1:
-        col.muints[i div 64] = col.uints[i div 64] or      (1'u64 shl (i mod 64))
+        col.data[i div 64] = col.data[i div 64] or      (1'u64 shl (i mod 64))
     else: # val == 0
-        col.muints[i div 64] = col.uints[i div 64] and not (1'u64 shl (i mod 64))
+        col.data[i div 64] = col.data[i div 64] and not (1'u64 shl (i mod 64))
 
-proc `+=`*[S](col: var TwoColoring[S], amt: uint64) =
-    col.muints[0] += amt
-    when uintc(col) > 1:
-        col.muints[1] += (col.uints[0] < amt).uint64
+proc `+=`*(col: var TwoColoring, amt: uint64) =
+    col.data[0] += amt
+    if col.data.len > 1:
+        col.data[1] += (col.data[0] < amt).uint64
 
-proc hash*[S](col: TwoColoring[S]): Hash =
-    for ui in uints(col):
+proc randomize*(col: var TwoColoring): void =
+    ## Randomize a two-coloring
+    for i in 0 ..< col.data.len:
+        col.data[i] = randu64()
+
+proc hash*(col: TwoColoring): Hash =
+    # TODO: Disregard out-of-bound bits
+    for ui in col.data:
         result = result !& hash(ui)
     result = !$result
+
+when isMainModule:
+    var col = initTwoColoring(20)
+    echo col
 
