@@ -68,3 +68,8 @@ template export_Coloring_Coloring_bool(function: untyped): untyped =
 
 export_Coloring_Coloring_bool(`==`)
 
+template export_varColoring_int_void(function: untyped): untyped =
+    proc `function`*[C](col: var Coloring[C], amt: int): void =
+        function(col.data, amt)
+
+export_varColoring_int_void(extend)

@@ -8,12 +8,13 @@ import random
 random.randomize()
 
 type NColoring*[C: static[int]] = object
-    N*: int
     data: seq[range[0 .. C - 1]]
+
+proc N*[C](col: NColoring[C]): int =
+    return col.data.len
 
 proc initNColoring*(C: static[int], N: int): NColoring[C] =
     static: assert C != 2
-    result.N = N
     result.data = @[]
     for _ in 1..N:
         result.data.add(0)
@@ -47,3 +48,8 @@ proc `$`*[C](col: NColoring[C]): string =
 proc randomize*[C](col: var NColoring[C]): void =
     for i in 0 ..< col.N:
         col[i] = rand(C - 1)
+
+proc extend*[C](col: var NColoring[C], amt: int): void =
+    for _ in 0 ..< amt:
+        col.data.add(0)
+

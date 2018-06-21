@@ -33,19 +33,36 @@ when isMainModule:
     random.randomize()
 
     const K = 4
-    const N = 20
 
-    var flips = 0
+    block:
+        benchmark("K = $#, N = 34" % $K, trials=1000):
+            var col = initColoring(2, 34)
+            var flips = 0
 
-    var col: Coloring[2] = initColoring(2, N)
-    benchmark("K = $#, N = $#" % [$K, $N], trials=1):
-        while true:
-            randomize(col)
-            flips.inc
+            while true:
+                randomize(col)
+                flips.inc
 
-            if not col.has_MAS(K):
-                echo("Found coloring with no MAS($#)" % [$K])
-                echo(col)
-                echo(flips)
-                break
+                if not col.has_MAS(K):
+                    echo("Took $# iterations to find [$#]." % [$flips, $col])
+                    break
+
+    echo("Press enter to continue...")
+    discard readLine(stdin)
+
+    var col: Coloring[2] = initColoring(2, 0)
+    for _ in 1 .. 34:
+        col.extend(1)
+        var flips = 0
+
+        benchmark("K = $#, N = $#" % [$K, $col.N], trials=1):
+            while true:
+                randomize(col)
+                flips.inc
+
+                if not col.has_MAS(K):
+                    echo("Found col($#, $#) with no MAS($#): $#" % [$2, $col.N, $K, $col])
+                    echo("Took $# iterations." % $flips)
+                    echo()
+                    break
 
