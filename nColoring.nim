@@ -5,7 +5,7 @@ import math
 import hashes
 import random
 
-random.ranomize()
+random.randomize()
 
 type NColoring*[C: static[int]] = object
     N: int
@@ -47,4 +47,3 @@ proc `$`*[C](col: NColoring[C]): string =
 proc randomize*[C](col: var NColoring[C]): void =
     for i in 0 ..< col.N:
         col[i] = rand(C - 1)
-
