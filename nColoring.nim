@@ -3,8 +3,10 @@ import strutils
 import sequtils
 import math
 import hashes
+import random
 
-# TODO: Make distinct?
+random.ranomize()
+
 type NColoring*[C: static[int]] = object
     N: int
     data: seq[range[0 .. C - 1]]
@@ -37,11 +39,12 @@ proc `+=`*[C](col: var NColoring[C], amt: uint64) =
         overflow = X div C
 
 proc `$`*[C](col: NColoring[C]): string =
-    assert(C <= 9)
+    static: assert C <= 9
     result = ""
     for item in col:
         result &= $item
 
-proc hash*[C](col: NColoring[C]): Hash =
-    assert false # unimplemented, fuckers
+proc randomize*[C](col: var NColoring[C]): void =
+    for i in 0 ..< col.N:
+        col[i] = rand(C - 1)
 

@@ -41,8 +41,7 @@ proc `[]`*(col: TwoColoring, i: int): range[0 .. 1]
 proc `$`*(col: TwoColoring): string =
     result = ""
     for i in 0 ..< col.N:
-        # TODO: Optimize? `&=` is perhaps slow?
-        result &= $col[i]
+        result.add($col[i[)
 
 proc `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
     if i >= col.N:
@@ -68,26 +67,3 @@ proc randomize*(col: var TwoColoring): void =
     for i in 0 ..< col.data.len:
         col.data[i] = randu64()
 
-proc hash*(col: TwoColoring): Hash =
-    # TODO: Disregard out-of-bound bits
-    for ui in col.data:
-        result = result !& hash(ui)
-    result = !$result
-
-when isMainModule:
-    var col0 = initTwoColoring(5)
-    var col1 = initTwoColoring(5)
-
-    col0.randomize()
-    col1.randomize()
-
-    echo col0
-    echo col1
-
-    for i in 0..4:
-        col0[i] = 0
-        col1[i] = 0
-
-    echo col0
-    echo col1
-    echo col0 == col1

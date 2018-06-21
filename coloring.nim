@@ -65,28 +65,3 @@ template export_Coloring_Coloring_bool(function: untyped): untyped =
 
 export_Coloring_Coloring_bool(`==`)
 
-when isMainModule:
-    import typetraits
-
-    # Test merging types
-
-    var tc = initColoring(2, 128)
-    var nc = initColoring(5, 128)
-
-    echo(tc.data.type.name)
-    echo(nc.data.type.name)
-
-    tc += 2
-    nc += 5
-
-    echo tc
-    echo nc
-
-    # Test creating new proc
-
-    proc test[C](col: Coloring[C]) =
-        echo($C)
-
-    test(tc)
-    test(nc)
-
