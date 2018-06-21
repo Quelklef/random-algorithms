@@ -33,11 +33,11 @@ when isMainModule:
     random.randomize()
 
     const K = 4
-    const N = 35
+    const N = 20
 
     var flips = 0
 
-    var col: Coloring[2] = initColoring[2](N)
+    var col: Coloring[2] = initColoring(2, N)
     benchmark("K = $#, N = $#" % [$K, $N], trials=1):
         while true:
             randomize(col)

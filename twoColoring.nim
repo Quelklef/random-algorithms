@@ -16,7 +16,7 @@ proc iceil(x: float32): int = return int(x.ceil)
 proc iceil(x: float64): int = return int(x.ceil)
 
 type TwoColoring* = object
-    N: int  # Size of coloring
+    N*: int  # Size of coloring
     data: seq[uint64]
 
 proc initTwoColoring*(N: int): TwoColoring =
@@ -41,7 +41,7 @@ proc `[]`*(col: TwoColoring, i: int): range[0 .. 1]
 proc `$`*(col: TwoColoring): string =
     result = ""
     for i in 0 ..< col.N:
-        result.add($col[i[)
+        result.add($col[i])
 
 proc `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
     if i >= col.N:

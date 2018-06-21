@@ -17,6 +17,9 @@ macro coloringImpl*(C: static[int]): untyped =
 type Coloring*[C: static[int]] = object
     data*: coloringImpl(C)
 
+proc N*[C](col: Coloring[C]): int =
+    return col.data.N
+
 proc initColoring*(C: static[int], N: int): Coloring[C] =
     when C == 2:
         result.data = initTwoColoring(N)

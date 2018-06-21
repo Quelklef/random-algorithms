@@ -5,10 +5,10 @@ import math
 import hashes
 import random
 
-random.ranomize()
+random.randomize()
 
 type NColoring*[C: static[int]] = object
-    N: int
+    N*: int
     data: seq[range[0 .. C - 1]]
 
 proc initNColoring*(C: static[int], N: int): NColoring[C] =
