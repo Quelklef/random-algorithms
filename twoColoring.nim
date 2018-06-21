@@ -71,6 +71,23 @@ proc hash*(col: TwoColoring): Hash =
     result = !$result
 
 when isMainModule:
-    var col = initTwoColoring(20)
-    echo col
+    var col0 = initTwoColoring(5)
+    var col1 = initTwoColoring(5)
 
+    col0.randomize()
+    col1.randomize()
+
+    echo col0
+    echo col1
+
+    # Should give out-of-bounds but doesn't
+    col0[5] = 1
+    col0[6] = 1
+
+    for i in 0..4:
+        col0[i] = 0
+        col1[i] = 0
+
+    echo col0
+    echo col1
+    echo col0 == col1

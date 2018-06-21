@@ -22,7 +22,6 @@ proc initColoring*(C: static[int], N: int): Coloring[C] =
         result.data = initTwoColoring(N)
     else:
         result.data = initNColoring(C, N)
-    
 
 template export_varColoring_void(function: untyped): untyped =
     proc `function`*(col: var Coloring) {.inline.} =
