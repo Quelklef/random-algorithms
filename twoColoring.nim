@@ -24,7 +24,7 @@ type TwoColoring* = object
 proc initTwoColoring*(N: int): TwoColoring =
     result.N = N
     result.data = @[]
-    for _ in 0 ..< (N div 64):
+    for _ in 1 .. ceildiv(N, 64):
         result.data.add(0'u64)
 
 proc `==`*(col0, col1: TwoColoring): bool =
