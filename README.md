@@ -5,7 +5,7 @@ Okay, time for a problem description...
 
 ## C-colorings
 
-We introduce the idea of a _coloring_, which is a sequence of colors.
+We introduce the idea of a coloring, which is a sequence of colors.
 For instance, a red-blue coloring may be
 
 ```
@@ -21,17 +21,17 @@ We typically deal with colorings as represented by a sequence of numbers, so we 
 Where `0` corresponds to red and `1` to blue.
 
 We generalize the idea of a coloring to a C-coloring, which is just a coloring of C colors.
-The coloring is represented as a sequence of numbers from 0 (inclusive) to C-1 (esclusive).
+The coloring is represented as a sequence of numbers from 0 (inclusive) to C (esclusive).
 
 C-colorings are reified by the `Coloring[C: static[int]]` type in the code.
 
 ## Subsequences
 
-We notate subsequences with `_` and `^`s, for instance:
+We notate subsequences with `-` and `^`s, for instance:
 
 ```
 110101010100001
-______^^^^_____
+------^^^^-----
 ```
 
 In the code, however, subsequences are typically represented as 2-colorings, like:
@@ -54,7 +54,7 @@ For instance, consider the following 3-coloring with a MAS(3) notated:
 
 ```
 120212120120
-_^_^_^______
+-^-^-^------
 ```
 
 The items of the MAS are 1 apart from each other, and are each the color `2`. Thus, it is a MAS(3).
