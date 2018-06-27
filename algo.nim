@@ -33,12 +33,20 @@ func has_MAS*[C](coloring: Coloring[C], K: int): bool =
                 return true
     return false
 
-func find_noMAS_coloring*(C: static[int], N, K: int): Coloring[C] =
+
+proc find_noMAS_coloring*(C: static[int], N, K: int, iterThreshold: BiggestInt): tuple[flipCount: int, coloring: Option[Coloring[C]]] =
     var col = initColoring(C, N)
+    var flips = 0
+
     while true:
+        if flips > iterThreshold:
+            return (flipCount: flips, coloring: none(Coloring[C]))
+
         col.randomize()
+        inc(flips)
+
         if not col.has_MAS(K):
-            return col
+            return (flipCount: flips, coloring: some(col))
 
 when isMainModule:
     import benchmark
@@ -63,7 +71,7 @@ when isMainModule:
         startN = some(parseInt(paramStr(2)))
 
     # How many iterations until we cut it off?
-    const iterThreshold = 10_000_000_000  # 10 billion
+    const iterThreshold: BiggestInt = 10_000_000_000  # 10 billion
     const C = 2
 
     # Keep track of known theoretical limits
@@ -72,75 +80,44 @@ when isMainModule:
         (4, 2): 35
     }.toTable
 
-    # Data is outputted as:
-    # TIMESTAMP, DURATION, FLIPS, C, K, N, COLORING (nullable)
-    let tabular = @[
-        len($getTime().toUnix()),
-        12,
-        20,
-        2,
-        3,
-        4,
-        40,
-    ]
-
-    template printTitle(): untyped =
-        echo tabular.rule()
-        echo tabular.headers("Time", "Duration", "Flips", "C", "K", "N", "Coloring")
-        echo tabular.rule()
-
-    printTitle()
+    let tabular = initTabular(
+        ["Timestamp"             , "Time"    , "Flips", "C", "K", "N", "Coloring"],
+        [len($getTime().toUnix()), 12        , 20     , 2  , 3  , 4  , 40        ],
+    )
+    echo tabular.title()
 
     let outFile = open("data.txt", fmAppend)
 
-    template report(time, flips, coloring: string) {.dirty.} =
-        let reportArr = [
-            $getTime().toUnix(),
-            time,
-            flips,
-            $C,
-            $K,
-            $N,
-            coloring,
-        ]
-        echo tabular.row(reportArr)
-        outFile.writeRow(reportArr)
+    proc report(values: openArray[string]) =
+        echo tabular.row(values)
+        outFile.writeRow(values)
 
     # TODO: Not quite desirable behavior when given starting N
     loopfrom(K, startK.get(4)):
         let limitN = knownLimits.getOption((K, C))
         block nextK:  # Break to here to go to next K
             loopfrom(N, startN.get(1)):
-                # Final value to report for the coloring column
-                var coloringColumn: string
 
                 if limitN.isSome and limitN.unsafeGet <= N:
-                    report("-", "-", "None (known)")
+                    report([$getTime().toUnix(), "-", "-", $C, $K, $N, "None, known"])
                     break nextK
                 else:
                     var time: float
-                    var col: Coloring[C]
+                    var col: Option[Coloring[C]]
                     var flips = 0
+
                     benchmark(time):
-                        block foundCol:
-                            col = initColoring(C, N)
+                        (flips, col) = find_noMAS_coloring(C, N, K, iterThreshold)
 
-                            while flips < iterThreshold:
-                                randomize(col)
-                                flips.inc
+                    if col.isNone:
+                        report([$getTime().toUnix(), time.formatFloat(ffDecimal, precision = 5) & "s", $flips, $C, $K, $N, "None, threshold ($#)" % $iterThreshold])
+                        break nextK
+                    else:
+                        report([$getTime().toUnix(), time.formatFloat(ffDecimal, precision = 5) & "s", $flips, $C, $K, $N, $col.unsafeGet])
 
-                                if not col.has_MAS(K):
-                                    coloringColumn = $col
-                                    report(time.formatFloat(ffDecimal, precision = 5), $flips, $col)
-                                    break foundCol
-
-                            # Passed threshhold
-                            report(time.formatFloat(ffDecimal, precision = 5), $flips, "None (threshold)")
-                            break nextK
-
+                # Reprint title every 20 rows
                 if N mod 20 == 0:
-                    # Reprint title every 20 rows
-                    printTitle()
+                    echo tabular.title()
 
     close(outFile)
 

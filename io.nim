@@ -7,34 +7,32 @@ import misc
 
 # Prints tables
 
-proc `*`(s: string, n: int): string =
-    result = ""
-    n.times:
-        result.add(s)
+type Tabular*[N] = object
+    sizes: array[N, int]
+    headings: array[N, string]
 
-proc joinSurround(s: seq[string], v: string): string =
-    ## Like `join`, but also includes the delimiter at the beginning and end
-    return v & s.join(v) & v
+func initTabular*[N](headings: array[N, string], sizes: array[N, int]): Tabular[N] =
+    return Tabular[N](sizes: sizes, headings: headings)
 
-proc rule*(sizes: seq[int]): string =
-    return sizes.map(proc(x: int): string = "-" * x)
-                .joinSurround("-+-")
+func title*[N](tab: Tabular[N]): string =
+    ## Return a 3-tall title
+    return "$#\n$#\n$#" % [tab.rule(), tab.head(), tab.rule()]
 
-proc row*(sizes: seq[int], vals: varargs[string, `$`]): string =
-    return zip(sizes, vals).map(proc(pair: (int, string)): string =
-                               alignLeft(pair[1], pair[0]))
-                           .joinSurround(" | ")
+func rule*[N](tab: Tabular[N]): string =
+    ## Return a horizontal rule
+    return tab.sizes.mapIt("-" * it).joinSurround("-+-")
 
-proc alignCenter(val: string, width: int): string =
-    return alignLeft(
-        " " * ((width - val.len) div 2) & val,
-        width,
-    )
+func row*[N](tab: Tabular[N], vals: varargs[string, `$`]): string =
+    ## Return a row
+    return zip(vals, tab.sizes)
+               .mapIt(alignLeft(it[0], it[1]))
+               .joinSurround(" | ")
 
-proc headers*(sizes: seq[int], vals: varargs[string, `$`]): string =
-    return zip(sizes, vals).map(proc(pair: (int, string)): string =
-                               alignCenter(pair[1], pair[0]))
-                           .joinSurround(" | ")
+func head*[N](tab: Tabular[N]): string =
+    ## Return a headings row
+    return zip(tab.headings, tab.sizes)
+               .mapIt(alignCenter(it[0], it[1]))
+               .joinSurround(" | ")
 
 # Simple CSV output implementation
 

@@ -25,6 +25,23 @@ template loopfrom*(ident: untyped, n: int, code: untyped): untyped =
 
 # -- #
 
+func `*`*(s: string, n: int): string =
+    result = ""
+    n.times:
+        result.add(s)
+
+func alignCenter*(val: string, width: int): string =
+    return alignLeft(
+        " " * ((width - val.len) div 2) & val,
+        width,
+    )
+
+func joinSurround*(s: seq[string], v: string): string =
+    ## Like `join`, but also includes the dlimiter at the beginning and end
+    return v & s.join(v) & v
+
+# -- #
+
 func getOption*[K, V](tab: Table[K, V], k: K): Option[V] =
     if k in tab:
         return some(tab[k])
