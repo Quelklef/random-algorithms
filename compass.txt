@@ -1,0 +1,28 @@
+
+N: Length of coloring
+K: Length of contained MAS
+C: Number of colors
+
+V(K,C): The lowest N for which there is no coloring with no MAS
+V(4,2) = 35
+
+
+Problem
+=======
+
+For various Ks (4,5,6), as N increases, try to find a 2-coloring without
+MASs by flipping coins. Keep track of if such a 2-coloring exists, what it
+is, how many iterations it took to find it, and how much time that took.
+
+With all the data, make graphs!
+
+When done, generalize to non-monochromatic sequences. For instance,
+instead of
+    a a+d a+2d a+3d
+do
+    a     a+2d a+3d
+or
+    a a+d      a+3d
+or
+    a a+d^2 a+d^2
+
