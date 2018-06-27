@@ -1,5 +1,0 @@
-
-There seems to be a bug concerning {.noSideEffects.};
-twoColoring.randomize() is correctly noted to have side effects, but
-nColoring.randomize() is not.
-

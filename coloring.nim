@@ -27,7 +27,7 @@ func initColoring*(C: static[int], N: int): Coloring[C] =
         result.data = initNColoring(C, N)
 
 template export_varColoring_void(function: untyped): untyped =
-    func `function`*(col: var Coloring) {.inline.} =
+    proc `function`*(col: var Coloring) {.inline.} =
         function(col.data)
 
 export_varColoring_void(randomize)

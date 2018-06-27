@@ -5,6 +5,37 @@ import tables
 
 import misc
 
+# Prints tables
+
+proc `*`(s: string, n: int): string =
+    result = ""
+    n.times:
+        result.add(s)
+
+proc joinSurround(s: seq[string], v: string): string =
+    ## Like `join`, but also includes the delimiter at the beginning and end
+    return v & s.join(v) & v
+
+proc rule*(sizes: seq[int]): string =
+    return sizes.map(proc(x: int): string = "-" * x)
+                .joinSurround("-+-")
+
+proc row*(sizes: seq[int], vals: varargs[string, `$`]): string =
+    return zip(sizes, vals).map(proc(pair: (int, string)): string =
+                               alignLeft(pair[1], pair[0]))
+                           .joinSurround(" | ")
+
+proc alignCenter(val: string, width: int): string =
+    return alignLeft(
+        " " * ((width - val.len) div 2) & val,
+        width,
+    )
+
+proc headers*(sizes: seq[int], vals: varargs[string, `$`]): string =
+    return zip(sizes, vals).map(proc(pair: (int, string)): string =
+                               alignCenter(pair[1], pair[0]))
+                           .joinSurround(" | ")
+
 # Simple CSV output implementation
 
 # Values are separated by commas

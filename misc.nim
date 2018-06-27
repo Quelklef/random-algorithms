@@ -2,12 +2,25 @@
 import random
 import tables
 import strutils
+import math
 
 random.randomize()
 
 var localRand = initRand(rand(int.high))
 proc rand_u64*(): uint64 =
     return localRand.next()
+
+# -- #
+
+template times*(n: Natural, code: untyped): untyped =
+    for _ in 0 ..< n:
+        code
+
+template loopfrom*(ident: untyped, n: int, code: untyped): untyped =
+    var ident = n
+    while true:
+        code
+        inc(ident)
 
 # -- #
 

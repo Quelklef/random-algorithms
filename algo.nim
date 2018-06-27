@@ -1,10 +1,15 @@
 
 import math
 import strutils
+import sequtils
 import random
+import times
 import options
+import os
 
 import coloring
+import io
+import misc
 
 iterator skip*[T](a, step: T, n: int): T =
     ## Yield a, a + T, a + 2T, etc., n times
@@ -39,38 +44,80 @@ when isMainModule:
 
     random.randomize()
 
-    const K = 4
+    # We allow two optional command-line parameters.
+    # The first specifies where we should start looping with K,
+    # and the second where we should start looping with N.
+    # '-' may instead be used to defer to the default start.
+    var startK: Option[int]
+    var startN: Option[int]
 
-    block:
-        const N = 34
-        benchmark("K = $#, N = $#" % [$K, $N], trials=100):
-            var col = initColoring(2, N)
+    if paramCount() < 1 or paramStr(1) == "-":
+        startK = none(int)
+    else:
+        startK = some(parseInt(paramStr(1)))
+
+    if paramCount() < 2 or paramStr(2) == "-":
+        startN = none(int)
+    else:
+        startN = some(parseInt(paramStr(2)))
+
+    # How many iterations until we cut it off?
+    const iterThreshold = 10_000_000_000  # 10 billion
+    const C = 2
+
+    # Data is outputted as:
+    # TIMESTAMP, DURATION, FLIPS, C, K, N, COLORING (nullable)
+    let tabular = @[
+        len($getTime().toUnix()),
+        12,
+        20,
+        2,
+        3,
+        4,
+        40,
+    ]
+    template printTitle(): untyped =
+        echo tabular.rule()
+        echo tabular.headers("Time", "Duration", "Flips", "C", "K", "N", "Coloring")
+        echo tabular.rule()
+    printTitle()
+    let outFile = open("data.txt", fmAppend)
+
+    loopfrom(K, startK.get(4)):
+        loopfrom(N, startN.get(1)):
+            var time: float
+            var foundColoring = true
+            var col: Coloring[C]
             var flips = 0
+            benchmark(time):
+                block success:
+                    col = initColoring(C, N)
 
-            while true:
-                randomize(col)
-                flips.inc
+                    while flips < iterThreshold:
+                        randomize(col)
+                        flips.inc
 
-                if not col.has_MAS(K):
-                    echo("Found [$#] in $# iterations." % [$col, $flips])
-                    break
+                        if not col.has_MAS(K):
+                            break success
 
-    echo("Press enter to continue...")
-    discard readLine(stdin)
+                    # Passed threshhold
+                    foundColoring = false
 
-    var col: Coloring[2] = initColoring(2, 0)
-    for _ in 1 .. 34:
-        col.extend(1)
-        var flips = 0
+            let report = [
+                $getTime().toUnix(),
+                time.formatFloat(ffDecimal, precision = 5),
+                $flips,
+                $C,
+                $K,
+                $N,
+                if foundColoring: $col else: "-"
+            ]
+            echo tabular.row(report)
+            outFile.writeRow(report)
 
-        benchmark("K = $#, N = $#" % [$K, $col.N], trials=1):
-            while true:
-                randomize(col)
-                flips.inc
+            if N mod 20 == 0:
+                # Reprint title every 20 rows
+                printTitle()
 
-                if not col.has_MAS(K):
-                    echo("Found col($#, $#) with no MAS($#): $#" % [$2, $col.N, $K, $col])
-                    echo("Took $# iterations." % $flips)
-                    echo()
-                    break
+    close(outFile)
 
