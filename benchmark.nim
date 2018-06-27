@@ -2,27 +2,29 @@
 import times
 import os
 import strutils
-import stats
+import math
 
-# Adapted from https://stackoverflow.com/questions/36577570/how-to-benchmark-few-lines-of-code-in-nim
-template benchmark*(benchmarkName: string, trials: int = 1, code: typed) =
-    ## `before` and `after` run before and after each trial but are not timed
-    var rs: RunningStat
-    var total = 0.0
+proc benchmark*[R](fun: proc(): R): (float, R) =
+    let t0 = epochTime()
+    let res = fun()
+    let elapsed = epochTime() - t0
+    return (elapsed, res)
 
-    for trial in 0 ..< trials:
-        let t0 = epochTime()
+template benchmarkTmpl*(name: string, code: untyped) =
+    proc fun() =
         code
-        let elapsed = epochTime() - t0
 
-        total += elapsed
-        rs.push(elapsed)
+    let elapsed = benchmark(fun)
+    echo("Benchmark [$#] took $#s." % [name, elapsed.formatFloat(format = ffDecimal, precision = 5)])
 
-    echo("Benchmark [$1]: n = $2, mean = $3s, stdev = $4s, total = $5s" % [
-        benchmarkName,
-        $trials,
-        $rs.mean().formatFloat(format = ffDecimal, precision = 5),
-        $rs.standardDeviationS().formatFloat(format = ffDecimal, precision = 5),
-        $total.formatFloat(format = ffDecimal, precision = 5),
-    ])
+when isMainModule:
+    echo(benchmark(proc() =
+        for i in 0 ..< 10^6:
+            echo(i) ))
+
+    discard readLine(stdin)
+
+    benchmarkTmpl("test"):
+        for i in 0 ..< 10^6:
+            echo(i)
 

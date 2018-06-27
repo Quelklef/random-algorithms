@@ -6,7 +6,7 @@ import options
 
 import coloring
 
-iterator skip[T](a, step: T, n: int): T =
+iterator skip*[T](a, step: T, n: int): T =
     ## Yield a, a + T, a + 2T, etc., n times
     var x = a
     for _ in 0 ..< n:
@@ -27,6 +27,13 @@ proc has_MAS*[C](coloring: Coloring[C], K: int): bool =
                 return true
     return false
 
+proc find_noMAS_coloring*(C: static[int], N, K: int): Coloring[C] =
+    var col = initColoring(C, N)
+    while true:
+        col.randomize()
+        if not col.has_MAS(K):
+            return col
+
 when isMainModule:
     import benchmark
 
@@ -35,8 +42,9 @@ when isMainModule:
     const K = 4
 
     block:
-        benchmark("K = $#, N = 34" % $K, trials=1000):
-            var col = initColoring(2, 34)
+        const N = 34
+        benchmark("K = $#, N = $#" % [$K, $N], trials=100):
+            var col = initColoring(2, N)
             var flips = 0
 
             while true:
@@ -44,7 +52,7 @@ when isMainModule:
                 flips.inc
 
                 if not col.has_MAS(K):
-                    echo("Took $# iterations to find [$#]." % [$flips, $col])
+                    echo("Found [$#] in $# iterations." % [$col, $flips])
                     break
 
     echo("Press enter to continue...")

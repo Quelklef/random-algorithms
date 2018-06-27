@@ -73,3 +73,13 @@ template export_varColoring_int_void(function: untyped): untyped =
         function(col.data, amt)
 
 export_varColoring_int_void(extend)
+
+
+iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =
+    for i in 0 ..< col.N:
+        yield col.data[i]
+
+iterator pairs*[C](col: Coloring[C]): (int, range[0 .. C - 1]) =
+    for i in 0 ..< col.N:
+        yield (i, col.data[i])
+

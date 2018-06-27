@@ -4,10 +4,7 @@ import math
 import hashes
 import random
 
-random.randomize()
-var localRand = initRand(rand(int.high))
-proc randu64(): uint64 =
-    return localRand.next()
+from misc import rand_u64
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
@@ -19,7 +16,7 @@ func ceildiv(x, y: int): int =
 
 type TwoColoring* = object
     N*: int  # Size of coloring
-    data: seq[uint64]
+    data*: seq[uint64]
 
 proc initTwoColoring*(N: int): TwoColoring =
     result.N = N
@@ -73,7 +70,7 @@ proc `+=`*(col: var TwoColoring, amt: uint64) =
 proc randomize*(col: var TwoColoring): void =
     ## Randomize a two-coloring
     for i in 0 ..< col.data.len:
-        col.data[i] = randu64()
+        col.data[i] = rand_u64()
 
 proc extend*(col: var TwoColoring, amt: int): void =
     ## Extend the coloring by the given amount
