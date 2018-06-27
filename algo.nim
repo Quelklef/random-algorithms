@@ -6,6 +6,7 @@ import random
 import times
 import options
 import os
+import tables
 
 import coloring
 import io
@@ -65,6 +66,12 @@ when isMainModule:
     const iterThreshold = 10_000_000_000  # 10 billion
     const C = 2
 
+    # Keep track of known theoretical limits
+    # Maps (K, C) to V(K, C)
+    const knownLimits = {
+        (4, 2): 35
+    }.toTable
+
     # Data is outputted as:
     # TIMESTAMP, DURATION, FLIPS, C, K, N, COLORING (nullable)
     let tabular = @[
@@ -76,48 +83,64 @@ when isMainModule:
         4,
         40,
     ]
+
     template printTitle(): untyped =
         echo tabular.rule()
         echo tabular.headers("Time", "Duration", "Flips", "C", "K", "N", "Coloring")
         echo tabular.rule()
+
     printTitle()
+
     let outFile = open("data.txt", fmAppend)
 
+    template report(time, flips, coloring: string) {.dirty.} =
+        let reportArr = [
+            $getTime().toUnix(),
+            time,
+            flips,
+            $C,
+            $K,
+            $N,
+            coloring,
+        ]
+        echo tabular.row(reportArr)
+        outFile.writeRow(reportArr)
+
+    # TODO: Not quite desirable behavior when given starting N
     loopfrom(K, startK.get(4)):
-        loopfrom(N, startN.get(1)):
-            var time: float
-            var foundColoring = true
-            var col: Coloring[C]
-            var flips = 0
-            benchmark(time):
-                block success:
-                    col = initColoring(C, N)
+        let limitN = knownLimits.getOption((K, C))
+        block nextK:  # Break to here to go to next K
+            loopfrom(N, startN.get(1)):
+                # Final value to report for the coloring column
+                var coloringColumn: string
 
-                    while flips < iterThreshold:
-                        randomize(col)
-                        flips.inc
+                if limitN.isSome and limitN.unsafeGet <= N:
+                    report("-", "-", "None (known)")
+                    break nextK
+                else:
+                    var time: float
+                    var col: Coloring[C]
+                    var flips = 0
+                    benchmark(time):
+                        block foundCol:
+                            col = initColoring(C, N)
 
-                        if not col.has_MAS(K):
-                            break success
+                            while flips < iterThreshold:
+                                randomize(col)
+                                flips.inc
 
-                    # Passed threshhold
-                    foundColoring = false
+                                if not col.has_MAS(K):
+                                    coloringColumn = $col
+                                    report(time.formatFloat(ffDecimal, precision = 5), $flips, $col)
+                                    break foundCol
 
-            let report = [
-                $getTime().toUnix(),
-                time.formatFloat(ffDecimal, precision = 5),
-                $flips,
-                $C,
-                $K,
-                $N,
-                if foundColoring: $col else: "-"
-            ]
-            echo tabular.row(report)
-            outFile.writeRow(report)
+                            # Passed threshhold
+                            report(time.formatFloat(ffDecimal, precision = 5), $flips, "None (threshold)")
+                            break nextK
 
-            if N mod 20 == 0:
-                # Reprint title every 20 rows
-                printTitle()
+                if N mod 20 == 0:
+                    # Reprint title every 20 rows
+                    printTitle()
 
     close(outFile)
 

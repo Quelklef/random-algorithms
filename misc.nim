@@ -3,6 +3,7 @@ import random
 import tables
 import strutils
 import math
+import options
 
 random.randomize()
 
@@ -21,6 +22,13 @@ template loopfrom*(ident: untyped, n: int, code: untyped): untyped =
     while true:
         code
         inc(ident)
+
+# -- #
+
+func getOption*[K, V](tab: Table[K, V], k: K): Option[V] =
+    if k in tab:
+        return some(tab[k])
+    return none(V)
 
 # -- #
 
