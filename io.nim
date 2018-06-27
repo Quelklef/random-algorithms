@@ -13,9 +13,9 @@ import misc
 # Quoutes are escaped wth \
 # If a value contains a newline, it will be surrounded by quotes
 
-proc writeRow*(file: File, vals: varargs[string, `$`]) =
-    file.writeln(
-        vals.map(proc(s: string): string =
+func writeRow*(file: File, vals: varargs[string, `$`]) =
+    file.writeLine(
+        vals.map(func(s: string): string =
             var s = s.replaceMany({
                 ",": "\\,",
                 "\\": "\\\\",
@@ -28,7 +28,7 @@ proc writeRow*(file: File, vals: varargs[string, `$`]) =
             .join(","))
 
 when isMainModule:
-    let f = open("test.txt", fmWrite)
+    let f = open("test.txt", fmAppend)
     f.writeRow(1, 2, 3)
     f.writeRow(4, 5, 6)
     f.writeRow("a\nb")

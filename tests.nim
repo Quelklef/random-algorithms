@@ -13,11 +13,9 @@ import twoColoring
 
 
 suite "Testing twoColoring":
-  #echo "suite setup: run once before the tests"
   var emptyTwoColoring, randomTwoColoring, fromStringColoring1, fromStringColoring2: TwoColoring
 
   setup:
-    #echo "run before each test"
     emptyTwoColoring = initTwoColoring(64)
     randomTwoColoring = initTwoColoring(64)
     randomize(randomTwoColoring)

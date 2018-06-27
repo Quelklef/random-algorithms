@@ -4,7 +4,7 @@ import os
 import strutils
 import math
 
-proc benchmark*[R](fun: proc(): R): (float, R) =
+func benchmark*[R](fun: proc(): R): (float, R) =
     let t0 = epochTime()
     let res = fun()
     let elapsed = epochTime() - t0

@@ -18,13 +18,13 @@ type TwoColoring* = object
     N*: int  # Size of coloring
     data*: seq[uint64]
 
-proc initTwoColoring*(N: int): TwoColoring =
+func initTwoColoring*(N: int): TwoColoring =
     result.N = N
     result.data = @[]
     for _ in 1 .. ceildiv(N, 64):
         result.data.add(0'u64)
 
-proc `==`*(col0, col1: TwoColoring): bool =
+func `==`*(col0, col1: TwoColoring): bool =
     if col0.N != col1.N:
         return false
 
@@ -36,32 +36,32 @@ proc `==`*(col0, col1: TwoColoring): bool =
     return (col0.data[col0.data.len - 1]) shl numIgnoreFromTail ==
            (col1.data[col0.data.len - 1]) shl numIgnoreFromTail
 
-proc `[]`*(col: TwoColoring, i: int): range[0 .. 1]
-proc `$`*(col: TwoColoring): string =
+func `[]`*(col: TwoColoring, i: int): range[0 .. 1]
+func `$`*(col: TwoColoring): string =
     result = ""
     for i in 0 ..< col.N:
         result.add($col[i])
 
-proc `{}`(col: TwoColoring, i: int): range[0 .. 1] =
+func `{}`(col: TwoColoring, i: int): range[0 .. 1] =
     return 1'u64 and (col.data[i div 64] shr (i mod 64))
 
-proc `{}=`(col: var TwoColoring, i: int, val: range[0 .. 1]) =
+func `{}=`(col: var TwoColoring, i: int, val: range[0 .. 1]) =
     if val == 1:
         col.data[i div 64] = col.data[i div 64] or      (1'u64 shl (i mod 64))
     else: # val == 0
         col.data[i div 64] = col.data[i div 64] and not (1'u64 shl (i mod 64))
 
-proc `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
+func `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
     if i >= col.N:
         raise newException(IndexError, "Index $# out of bounds" % $i)
     return col{i}
 
-proc `[]=`*(col: var TwoColoring, i: int, val: range[0 .. 1]) =
+func `[]=`*(col: var TwoColoring, i: int, val: range[0 .. 1]) =
     if i >= col.N:
         raise newException(IndexError, "Index $# out of bounds" % $i)
     col{i} = val
 
-proc `+=`*(col: var TwoColoring, amt: uint64) =
+func `+=`*(col: var TwoColoring, amt: uint64) =
     ## May overflow
     col.data[0] += amt
     if col.data.len > 1:
@@ -72,7 +72,7 @@ proc randomize*(col: var TwoColoring): void =
     for i in 0 ..< col.data.len:
         col.data[i] = rand_u64()
 
-proc extend*(col: var TwoColoring, amt: int): void =
+func extend*(col: var TwoColoring, amt: int): void =
     ## Extend the coloring by the given amount
 
     # TODO this can be slightly faster, but it's not worth the effort rn
@@ -90,7 +90,7 @@ proc extend*(col: var TwoColoring, amt: int): void =
 
     col.N += amt
 
-proc fromString*(val: string): TwoColoring =
+func fromString*(val: string): TwoColoring =
     result = initTwoColoring(val.len)
     for index, chr in val:
         result[index] = ord(chr) - ord('0')

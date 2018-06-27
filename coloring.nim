@@ -17,59 +17,59 @@ macro coloringImpl*(C: static[int]): untyped =
 type Coloring*[C: static[int]] = object
     data*: coloringImpl(C)
 
-proc N*[C](col: Coloring[C]): int =
+func N*[C](col: Coloring[C]): int =
     return col.data.N
 
-proc initColoring*(C: static[int], N: int): Coloring[C] =
+func initColoring*(C: static[int], N: int): Coloring[C] =
     when C == 2:
         result.data = initTwoColoring(N)
     else:
         result.data = initNColoring(C, N)
 
 template export_varColoring_void(function: untyped): untyped =
-    proc `function`*(col: var Coloring) {.inline.} =
+    func `function`*(col: var Coloring) {.inline.} =
         function(col.data)
 
 export_varColoring_void(randomize)
 
 template export_varColoring_uint64_void(function: untyped): untyped =
-    proc `function`*(col: var Coloring, amt: uint64) {.inline.} =
+    func `function`*(col: var Coloring, amt: uint64) {.inline.} =
         function(col.data, amt)
 
 export_varColoring_uint64_void(`+=`)
 
 template export_Coloring_range_0S_range_0C(function: untyped): untyped =
-    proc `function`*[C](col: Coloring[C], i: int): range[0 .. C - 1] {.inline.} =
+    func `function`*[C](col: Coloring[C], i: int): range[0 .. C - 1] {.inline.} =
         return function(col.data, i)
 
 export_Coloring_range_0S_range_0C(`[]`)
 
 template export_varColoring_range_0S_range_0C_void(function: untyped): untyped =
-    proc `function`*[C](col: var Coloring[C], i: int, val: range[0 .. C - 1]) {.inline.} =
+    func `function`*[C](col: var Coloring[C], i: int, val: range[0 .. C - 1]) {.inline.} =
         function(col.data, i, val)
 
 export_varColoring_range_0S_range_0C_void(`[]=`)
 
 template export_Coloring_string(function: untyped): untyped =
-    proc `function`*[C](col: Coloring[C]): string {.inline.} =
+    func `function`*[C](col: Coloring[C]): string {.inline.} =
         return function(col.data)
 
 export_Coloring_string(`$`)
 
 template export_Coloring_Hash(function: untyped): untyped =
-    proc `function`*[C](col: Coloring[C]): Hash {.inline.} =
+    func `function`*[C](col: Coloring[C]): Hash {.inline.} =
         return function(col.data)
 
 export_Coloring_Hash(hash)
 
 template export_Coloring_Coloring_bool(function: untyped): untyped =
-    proc `function`*[C](colA, colB: Coloring[C]): bool {.inline.} =
+    func `function`*[C](colA, colB: Coloring[C]): bool {.inline.} =
         return function(colA.data, colB.data)
 
 export_Coloring_Coloring_bool(`==`)
 
 template export_varColoring_int_void(function: untyped): untyped =
-    proc `function`*[C](col: var Coloring[C], amt: int): void =
+    func `function`*[C](col: var Coloring[C], amt: int): void =
         function(col.data, amt)
 
 export_varColoring_int_void(extend)

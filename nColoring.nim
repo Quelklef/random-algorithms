@@ -10,26 +10,26 @@ random.randomize()
 type NColoring*[C: static[int]] = object
     data: seq[range[0 .. C - 1]]
 
-proc N*[C](col: NColoring[C]): int =
+func N*[C](col: NColoring[C]): int =
     return col.data.len
 
-proc initNColoring*(C: static[int], N: int): NColoring[C] =
+func initNColoring*(C: static[int], N: int): NColoring[C] =
     static: assert C != 2
     result.data = @[]
     for _ in 1..N:
         result.data.add(0)
 
-proc `[]`*[C](col: NColoring[C], i: int): range[0 .. C - 1] =
+func `[]`*[C](col: NColoring[C], i: int): range[0 .. C - 1] =
     return col.data[i]
 
-proc `[]=`*[C](col: var NColoring[C], i: int, val: range[0 .. C - 1]): void =
+func `[]=`*[C](col: var NColoring[C], i: int, val: range[0 .. C - 1]): void =
     col.data[i] = val
 
 iterator items*[C](col: NColoring[C]): range[0 .. C - 1] =
     for item in col.data:
         yield item
 
-proc `+=`*[C](col: var NColoring[C], amt: uint64) =
+func `+=`*[C](col: var NColoring[C], amt: uint64) =
     var overflow = amt
     for n in 0 ..< col.N:
         if overflow == 0:
@@ -39,17 +39,21 @@ proc `+=`*[C](col: var NColoring[C], amt: uint64) =
         col[n] = X mod C
         overflow = X div C
 
-proc `$`*[C](col: NColoring[C]): string =
+func `$`*[C](col: NColoring[C]): string =
     static: assert C <= 9
     result = ""
     for item in col:
         result &= $item
 
-proc randomize*[C](col: var NColoring[C]): void =
+func randomize*[C](col: var NColoring[C]): void =
     for i in 0 ..< col.N:
         col[i] = rand(C - 1)
 
-proc extend*[C](col: var NColoring[C], amt: int): void =
+func extend*[C](col: var NColoring[C], amt: int): void =
     for _ in 0 ..< amt:
         col.data.add(0)
+
+when isMainModule:
+    var nc = initNColoring(4, 100)
+    nc.randomize()
 

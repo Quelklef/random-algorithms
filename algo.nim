@@ -13,7 +13,7 @@ iterator skip*[T](a, step: T, n: int): T =
         yield x
         x += step
 
-proc has_MAS*[C](coloring: Coloring[C], K: int): bool =
+func has_MAS*[C](coloring: Coloring[C], K: int): bool =
     ## Find monochromatic arithmetic subseq of size K
     var col = coloring
     # Iterate over step sizes, which is the distance between each item in the MAS
@@ -27,7 +27,7 @@ proc has_MAS*[C](coloring: Coloring[C], K: int): bool =
                 return true
     return false
 
-proc find_noMAS_coloring*(C: static[int], N, K: int): Coloring[C] =
+func find_noMAS_coloring*(C: static[int], N, K: int): Coloring[C] =
     var col = initColoring(C, N)
     while true:
         col.randomize()
