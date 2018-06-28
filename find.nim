@@ -29,7 +29,7 @@ proc find_noMAS_coloring*(C: static[int], N, K: int, iterThreshold: BiggestInt):
     var flips = 0
 
     while true:
-        if flips > iterThreshold:
+        if flips >= iterThreshold:
             return (flipCount: flips, coloring: none(Coloring[C]))
 
         col.randomize()
