@@ -25,7 +25,7 @@ func rule*[N](tab: Tabular[N]): string =
 func row*[N](tab: Tabular[N], vals: varargs[string, `$`]): string =
     ## Return a row
     return zip(vals, tab.sizes)
-               .mapIt(alignLeft(it[0], it[1]))
+               .mapIt(align(it[0], it[1]))
                .joinSurround(" | ")
 
 func head*[N](tab: Tabular[N]): string =
@@ -36,21 +36,18 @@ func head*[N](tab: Tabular[N]): string =
 
 # Simple CSV output implementation
 
+# Designed to work with google sheets
 # Values are separated by commas
-# Commas are escaped with \
-# Backslahses are escaped with \
-# Quoutes are escaped wth \
-# If a value contains a newline, it will be surrounded by quotes
+# Quotes are escaped with another quote
+# Values that contain commas and newlines are surrounded by quotes
 
 func writeRow*(file: File, vals: varargs[string, `$`]) =
     file.writeLine(
         vals.map(func(s: string): string =
             var s = s.replaceMany({
-                ",": "\\,",
-                "\\": "\\\\",
-                "\"": "\\\"",
+                "\"": "\"\"",
             }.toTable)
-            if '\c' in s or '\L' in s:
+            if '\c' in s or '\L' in s or "," in s:
                 s = "\"" & s & "\""
             return s)
 
