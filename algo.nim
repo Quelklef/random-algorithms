@@ -1,4 +1,6 @@
 
+#import nimprof
+
 import math
 import strutils
 import sequtils
@@ -33,7 +35,6 @@ func has_MAS*[C](coloring: Coloring[C], K: int): bool =
                 return true
     return false
 
-
 proc find_noMAS_coloring*(C: static[int], N, K: int, iterThreshold: BiggestInt): tuple[flipCount: int, coloring: Option[Coloring[C]]] =
     var col = initColoring(C, N)
     var flips = 0
@@ -49,6 +50,12 @@ proc find_noMAS_coloring*(C: static[int], N, K: int, iterThreshold: BiggestInt):
             return (flipCount: flips, coloring: some(col))
 
 when isMainModule:
+    when not defined(reckless):
+        echo("INFO: Not running with -d:reckless.")
+    when not defined(release):
+        echo("WARNING: Not runnning with -d:release. Press enter to continue.")
+        discard readLine(stdin)
+
     import benchmark
 
     random.randomize()
@@ -80,43 +87,57 @@ when isMainModule:
         (4, 2): 35
     }.toTable
 
+    template fft(x: float): string =
+        ## One format to rule them all
+        x.formatFloat(ffDecimal, precision = 10)
+
     let tabular = initTabular(
-        ["Timestamp"             , "Time"    , "Flips", "C", "K", "N", "Coloring"],
-        [len($getTime().toUnix()), 12        , 20     , 2  , 3  , 4  , 40        ],
+        ["Timestamp"             , "CPU Time"         , "Epoch Time"       , "Flips"            , "C", "K", "N", "Coloring"],
+        [len($getTime().toUnix()), len(3600.fft & "s"), len(3600.fft & "s"), len($iterThreshold), 2  , 3  , 4  , 180       ],
     )
-    echo tabular.title()
 
     let outFile = open("data.txt", fmAppend)
 
-    proc report(values: openArray[string]) =
+    proc report(values: varargs[string, `$`]) =
         echo tabular.row(values)
         outFile.writeRow(values)
 
     # TODO: Not quite desirable behavior when given starting N
     loopfrom(K, startK.get(4)):
+        echo tabular.title()
         let limitN = knownLimits.getOption((K, C))
         block nextK:  # Break to here to go to next K
             loopfrom(N, startN.get(1)):
 
                 if limitN.isSome and limitN.unsafeGet <= N:
-                    report([$getTime().toUnix(), "-", "-", $C, $K, $N, "None, known"])
+                    report($getTime().toUnix(), "-", "-", "-", $C, $K, $N, "None, known")
                     break nextK
                 else:
-                    var time: float
+                    var cpuTimeElapsed: float
+                    let epochT0 = epochTime()
                     var col: Option[Coloring[C]]
                     var flips = 0
 
-                    benchmark(time):
+                    benchmark(cpuTimeElapsed):
                         (flips, col) = find_noMAS_coloring(C, N, K, iterThreshold)
 
-                    if col.isNone:
-                        report([$getTime().toUnix(), time.formatFloat(ffDecimal, precision = 5) & "s", $flips, $C, $K, $N, "None, threshold ($#)" % $iterThreshold])
-                        break nextK
-                    else:
-                        report([$getTime().toUnix(), time.formatFloat(ffDecimal, precision = 5) & "s", $flips, $C, $K, $N, $col.unsafeGet])
+                    let epochTimeElapsed = epochTime() - epochT0
 
-                # Reprint title every 20 rows
-                if N mod 20 == 0:
+                    report(
+                        $getTime().toUnix(),
+                        cpuTimeElapsed.fft & "s",
+                        epochTimeElapsed.fft & "s",
+                        $flips,
+                        $C,
+                        $K,
+                        $N,
+                        if col.isNone: "None, threshold ($#)" % $iterThreshold else: $col.unsafeGet,
+                    )
+
+                    if col.isNone:
+                        break nextK
+
+                if N mod 60 == 0:
                     echo tabular.title()
 
     close(outFile)
