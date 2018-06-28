@@ -12,6 +12,10 @@ type Tabular*[N] = object
     headings: array[N, string]
 
 func initTabular*[N](headings: array[N, string], sizes: array[N, int]): Tabular[N] =
+    var sizes = sizes
+    # Expand the column width if necessary to hold the heading
+    for i, size in sizes:
+        sizes[i] = max(sizes[i], len(headings[i]))
     return Tabular[N](sizes: sizes, headings: headings)
 
 func title*[N](tab: Tabular[N]): string =
