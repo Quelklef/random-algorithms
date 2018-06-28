@@ -67,5 +67,5 @@ Given a fixed C and K, we want to iterate over N and search for a C-coloring of 
 MAS(K). We do this by generating random MAS(K)s and checking if they are satisfactory.
 
 We keep track of how many randomizations it took to find a satisfactory coloring. The end goal is to
-analyze the plot of N vs Number of Ranomizations.
+analyze the plot of N vs Number of Randomizations.
 
