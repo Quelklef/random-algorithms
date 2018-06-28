@@ -10,6 +10,17 @@ iterator skip*[T](a, step: T, n: int): T =
         yield x
         x += step
 
+#TODO Eli check this please
+#idea is that if i pass 1011 into pattern it will look for "a     a+2d a+3d" type patterns
+#4 MAS could be changed to 1111 etc removing need for the other skip iterator
+#would probably need to rename things
+iterator skip*[T](a, step: T, pattern: string): T =
+    var x = a
+    for index, chr in pattern:
+      if chr == '1':
+        yield x
+      x += step
+
 func has_MAS*[C](coloring: Coloring[C], K: int): bool =
     ## Find monochromatic arithmetic subseq of size K
     var col = coloring
@@ -37,4 +48,3 @@ proc find_noMAS_coloring*(C: static[int], N, K: int, iterThreshold: BiggestInt):
 
         if not col.has_MAS(K):
             return (flipCount: flips, coloring: some(col))
-
