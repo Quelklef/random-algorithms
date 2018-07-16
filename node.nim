@@ -1,9 +1,9 @@
 type
   NodeObj = ref object
     name*: string
-    position*: int64
+    position*: int64 #within each graph all nodes should have a unique position from 0 to number of nodes - 1
     vertices*: seq[Node]
-  Node = ref NodeObj
+  Node* = ref NodeObj
 
 func initNode*(n: string): Node =
   result.name = n
