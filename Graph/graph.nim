@@ -46,6 +46,19 @@ proc initRandGraph*(n: int): Graph =
     addVertex(result.nodes[n2], result.nodes[n1]) #effectively makes it an undirected graph
   shuffle(result)
 
+func findIndSetRight(g: Graph): seq[Node] =
+  for n in g.nodes:
+    if not testRight(n):
+        result.add(n)
+
+func findIndSetLeft(g: Graph): seq[Node] =
+  for n in g.nodes:
+    if not testLeft(n):
+        result.add(n)
+
+func iSet*(g: Graph): seq[int] =
+ return @[findIndSetLeft(g).len, findIndSetRight(g).len]
+
 #shuffles the positions of all the nodes within g
 #[
 func shuffle*(g: Graph) =
@@ -65,8 +78,8 @@ proc shuffle*(g: Graph): void =
 
 ]#
 let tabular = initTabular(
-    ["Position", "Name", "Connected to"],
-    [2         , 1     , 10],
+    ["Position", "Name", "Connected to", "Left Ind.", "Right Ind."],
+    [2         , 1     , 14           , 0          , 0],
 )
 
 proc report(values: varargs[string, `$`]) =
@@ -79,20 +92,17 @@ proc toString*(g: Graph): string =
     for e in n.vertices:
       edges.add(" " & e.name)
     #result.add("\n" & $n.position & " (" & n.name & "):" & edges)
-    report(n.position, n.name, edges)
-
-func findIndSetRight*(g: Graph): seq[Node] =
-  for n in g.nodes:
-    if testRight(n):
-        result.add(n)
-
-func findIndSetLeft*(g: Graph): seq[Node] =
-  for n in g.nodes:
-    if testLeft(n):
-        result.add(n)
-
-func iSet*(g: Graph): seq[int] =
- return @[findIndSetLeft(g).len, findIndSetRight(g).len]
+    report(n.position, n.name, edges, not testLeft(n), not testRight(n))
+  var l = findIndSetLeft(g)
+  var r = findIndSetRight(g)
+  var temp: string = ""
+  for node in l:
+    temp.add(" " & node.name)
+  echo "Ind. Set Left (" & $l.len & "):", temp
+  temp = ""
+  for node in r:
+    temp.add(" " & node.name)
+  echo "Ind. Set Right (" & $r.len & "):", temp
 
 #[
 func iSet*(g: Graph): int =
