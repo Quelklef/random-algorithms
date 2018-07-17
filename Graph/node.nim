@@ -1,16 +1,17 @@
 type
-  NodeObj = ref object
+  NodeObj = object
     name*: char
     position*: int64 #within each graph all nodes should have a unique position from 0 to number of nodes - 1
     vertices*: seq[Node]
   Node* = ref NodeObj
 
 func initNode*(n: char): Node =
+  new(result)
   result.name = n
   result.position = -1
   result.vertices = @[]
 
-func setPosition*(n: var Node, i: int64): void =
+func setPosition*(n: var Node, i: int): void =
   n.position =  i
 
 func addVertex*(n1: Node, n2: Node): void =
