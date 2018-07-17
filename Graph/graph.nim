@@ -56,6 +56,13 @@ proc shuffle2*(g: var Graph): void =
     n.position = i
 ]#
 
+proc toString*(g: Graph): string =
+  for n in g.nodes:
+    var edges = ""
+    for e in n.vertices:
+      edges.add(" " & e.name)
+    result.add(n.name & ":" & edges)
+    
 func findIndSetRight*(g: Graph): seq[Node] =
   for n in g.nodes:
     if testRight(n):
