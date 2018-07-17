@@ -61,8 +61,8 @@ proc toString*(g: Graph): string =
     var edges = ""
     for e in n.vertices:
       edges.add(" " & e.name)
-    result.add(n.name & ":" & edges)
-    
+    result.add("\n" & n.name & ":" & edges)
+
 func findIndSetRight*(g: Graph): seq[Node] =
   for n in g.nodes:
     if testRight(n):
@@ -74,17 +74,9 @@ func findIndSetLeft*(g: Graph): seq[Node] =
         result.add(n)
 
 func iSet*(both: bool, g: Graph): seq[int] =
- var l, r = 0
- # insert shuffle function
+ var l = findIndSetLeft(g).len
+ var r = findIndSetRight(g).len
  if both:
-  for i in g.nodes:
-   if not testLeft(i):
-    inc(l)
-   if not testRight(i):
-    inc(r)
-  result = @[l, r]
+  return @[l, r]
  else:
-    for i in g.nodes:
-     if not testLeft(i):
-       inc(l)
-    result.add(l)
+   return @[r]

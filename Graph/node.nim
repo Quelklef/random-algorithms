@@ -11,7 +11,7 @@ func initNode*(n: char): Node =
   result.position = -1
   result.vertices = @[]
 
-func setPosition*(n: var Node, i: int): void =
+func setPosition*(n: Node, i: int): void =
   n.position =  i
 
 func addVertex*(n1: Node, n2: Node): void =
