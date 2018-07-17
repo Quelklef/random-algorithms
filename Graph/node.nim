@@ -1,11 +1,11 @@
 type
   NodeObj = ref object
-    name*: string
+    name*: char
     position*: int64 #within each graph all nodes should have a unique position from 0 to number of nodes - 1
     vertices*: seq[Node]
   Node* = ref NodeObj
 
-func initNode*(n: string): Node =
+func initNode*(n: char): Node =
   result.name = n
   result.position = -1
   result.vertices = @[]
@@ -13,7 +13,7 @@ func initNode*(n: string): Node =
 func setPosition*(n: var Node, i: int64): void =
   n.position =  i
 
-func addVertex*(n1: var Node, n2: Node): void =
+func addVertex*(n1: Node, n2: Node): void =
     n1.vertices.add(n2)
 
 func connected*(n1: Node, n2: Node): bool =
