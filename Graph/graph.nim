@@ -30,7 +30,7 @@ proc initRandGraph*(n: int): Graph =
 func shuffle*(g: Graph) =
   let nums = toSeq(0 ..< g.size)
   for pair in zip(g.nodes, nums):
-    pair.a.position = pair.b
+    setPosition(pair.a, pair.b)
 
 #[
 proc shuffle1*(g: Graph): void =
