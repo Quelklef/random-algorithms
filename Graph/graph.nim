@@ -17,27 +17,6 @@ func seqNodes(num: int): seq[Node] =
 proc initGraph(n: int): Graph =
   result.nodes = seqNodes(n)
 
-#makes simple graph
-#multigraphs can be treated as simple graphs for independent sets
-proc initRandGraph*(n: int): Graph =
-  result.nodes = seqNodes(n)
-  #n-1 is min num of edges in a graph, n*(n-1)/2 is max
-  #returns random number inbetween min and max
-  var numEdges = rand(int(n*(n-1)/2) - (n-1)) + (n-1)
-  for i in 0 ..< n:
-    var n1 = rand(n-1)
-    var n2 = rand(n-1)
-    addVertex(result.nodes[n1], result.nodes[n2])
-    addVertex(result.nodes[n2], result.nodes[n1])
-    
-#shuffles the positions of all the nodes within g
-#[
-func shuffle*(g: Graph) =
-  let nums = toSeq(0 ..< g.size)
-  for pair in zip(g.nodes, nums):
-    setPosition(pair.a, pair.b)
-]#
-
 proc shuffle*(g: Graph): void =
   var nums: seq[int]
   for i in 0 ..< size(g):
@@ -47,7 +26,28 @@ proc shuffle*(g: Graph): void =
     pos = rand(nums.len-1)
     n.position = nums[pos]
     nums.del(pos)
+
+#makes simple graph
+#multigraphs can be treated as simple graphs for independent sets
+proc initRandGraph*(n: int): Graph =
+  result = initGraph(n)
+  #n-1 is min num of edges in a graph, n*(n-1)/2 is max
+  #returns random number inbetween min and max
+  var numEdges = rand(int(n*(n-1)/2) - (n-1)) + (n-1)
+  for i in 0 ..< n:
+    var n1 = rand(n-1)
+    var n2 = rand(n-1)
+    addVertex(result.nodes[n1], result.nodes[n2])
+    addVertex(result.nodes[n2], result.nodes[n1]) #effectively makes it an undirected graph
+  shuffle(result)
+
+#shuffles the positions of all the nodes within g
 #[
+func shuffle*(g: Graph) =
+  let nums = toSeq(0 ..< g.size)
+  for pair in zip(g.nodes, nums):
+    setPosition(pair.a, pair.b)
+
 proc shuffle*(g: var Graph): void =
   var newSeq: seq[Node] #new sequence to replace g.nodes
   newSeq = @[]
@@ -66,7 +66,7 @@ proc toString*(g: Graph): string =
     var edges = ""
     for e in n.vertices:
       edges.add(" " & e.name)
-    result.add("\n" & n.name & "(" & $n.position & "):" & edges)
+    result.add("\n" & n.name & " (" & $n.position & "):" & edges)
 
 func findIndSetRight*(g: Graph): seq[Node] =
   for n in g.nodes:
