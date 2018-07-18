@@ -6,6 +6,10 @@ import tables
 import io
 import misc
 
+
+const names = @["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike",
+"November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"]
+
 type Graph = object
   nodes: seq[Node]
 
@@ -19,10 +23,13 @@ func numE(g: Graph): int =
    result += n.vertices.len
  result = int(result/2)
 
-#makes a sequence of nodes with names a, b, c, etc
+#makes a sequence of nodes with NATO phonetic alphabet names, if it runs out of those it switches to characters starting at 'a'
 func seqNodes(num: int): seq[Node] =
   for i in 0 ..< num:
-    result.add(initNode((chr(ord('a') + i))))
+    if i < names.len:
+      result.add(initNode(names[i] & ""))
+    else:
+      result.add(initNode(chr(ord('a') + i - names.len) & ""))
 
 proc initGraph(n: int): Graph =
   result.nodes = seqNodes(n)
