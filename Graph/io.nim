@@ -65,4 +65,3 @@ when isMainModule:
     f.writeRow("value before", "hello\non a new line!", "value after")
     f.writeRow("I contain a couple of quotes! \" \" \" :)))")
     f.writeRow("I have a backs\\ash!")
-

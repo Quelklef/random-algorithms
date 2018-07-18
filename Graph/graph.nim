@@ -12,6 +12,12 @@ type Graph = object
 func size*(g: Graph): int =
   return g.nodes.len
 
+#Double counts edges in undirected multigraphs
+func numE(g: Graph): int =
+ result = 0
+ for i, n in g.nodes:
+   result += n.vertices.len
+
 #makes a sequence of nodes with names a, b, c, etc
 func seqNodes(num: int): seq[Node] =
   for i in 0 ..< num:
@@ -39,9 +45,17 @@ proc initRandGraph*(n: int): Graph =
   #n-1 is min num of edges in a graph, n*(n-1)/2 is max
   #returns random number inbetween min and max
   var numEdges = rand(int(n*(n-1)/2) - (n-1)) + (n-1)
-  for i in 0 ..< n:
+  for i in 0 ..< numEdges:
     var n1 = rand(n-1)
     var n2 = rand(n-1)
+    #[
+    Gets rid of self-cycles accending &&
+    Takes away the existence of multigraphs (0-1 edge between any two distinct vertices)
+      Problem: Doing the latter with this code will prove to be much more time-wasting the more complete the graph is
+    ]#
+    while n1 == n2 or connected(n1, n2):
+      n1 = rand(n-1)
+      n2 = rand(n-1)
     addVertex(result.nodes[n1], result.nodes[n2])
     addVertex(result.nodes[n2], result.nodes[n1]) #effectively makes it an undirected graph
   shuffle(result)
@@ -65,7 +79,6 @@ func shuffle*(g: Graph) =
   let nums = toSeq(0 ..< g.size)
   for pair in zip(g.nodes, nums):
     setPosition(pair.a, pair.b)
-
 proc shuffle*(g: Graph): void =
   var nums: seq[int]
   for i in 0 ..< size(g):
@@ -75,12 +88,13 @@ proc shuffle*(g: Graph): void =
     pos = rand(nums.len-1)
     n.position = nums[pos]
     nums.del(pos)
-
 ]#
 let tabular = initTabular(
     ["Position", "Name", "Connected to", "Left Ind.", "Right Ind."],
     [2         , 1     , 14           , 0          , 0],
 )
+
+
 
 proc report(values: varargs[string, `$`]) =
     echo tabular.row(values)
@@ -103,7 +117,8 @@ proc toString*(g: Graph): string =
   for node in r:
     temp.add(" " & node.name)
   echo "Ind. Set Right (" & $r.len & "):", temp
-
+  echo "Nodes: ", size(g)
+  echo "Edges: ", numE(g)/2
 #[
 func iSet*(g: Graph): int =
   shuffle(g)
