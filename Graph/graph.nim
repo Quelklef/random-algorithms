@@ -17,7 +17,7 @@ func size*(g: Graph): int =
   return g.nodes.len
 
 #Counts edges in undirected multigraphs
-func numE(g: Graph): int =
+func numE*(g: Graph): int =
  result = 0
  for i, n in g.nodes:
    result += n.vertices.len
@@ -26,10 +26,13 @@ func numE(g: Graph): int =
 #makes a sequence of nodes with NATO phonetic alphabet names, if it runs out of those it switches to characters starting at 'a'
 func seqNodes(num: int): seq[Node] =
   for i in 0 ..< num:
+    var newNode: Node
     if i < names.len:
-      result.add(initNode(names[i] & ""))
+      newNode = initNode(names[i] & "")
     else:
-      result.add(initNode(chr(ord('a') + i - names.len) & ""))
+      newNode = initNode(chr(ord('a') + i - names.len) & "")
+    setPosition(newNode, i)
+    result.add(newNode)
 
 proc initGraph(n: int): Graph =
   result.nodes = seqNodes(n)
@@ -48,12 +51,12 @@ proc shuffle*(g: var Graph): void =
 
 #makes simple graph
 #multigraphs can be treated as simple graphs for independent sets
-proc initRandGraph*(n: int): Graph =
+
+proc initRandGraph*(n: int, numEdges: int): Graph =
   result = initGraph(n)
   #n-1 is min num of edges in a graph, n*(n-1)/2 is max
   #returns random number inbetween min and max
-  var numEdges = rand(int(n*(n-1)/2) - (n-1)) + (n-1)
-  var seqE: seq[int] = @[]
+  var seqE = toSeq(1 .. int(n*(n-1)/2))
   #[
   Explanation: of code below:
   seqE contains numbers 1 to n(n-1)/2 with each number corresponding to an edge relationship between two vertices
@@ -68,19 +71,19 @@ proc initRandGraph*(n: int): Graph =
   Following this pattern, there are two numbers to keep track of: the column and row
   In the code we keep track of a(the row) and a+b (the column)
   ]#
-  for i in 1 .. int(n*(n-1)/2):
-    seqE.add(i)
   for i in 0 ..< numEdges:
     var i = rand(seqE.len-1)
     var b = seqE[i]
-    seqE.delete(i)
+    seqE.del(i)
     var a = 0
     while b - (n - 1 - a) > 0:
       b -= (n - 1 - a)
       a += 1
     addVertex(result.nodes[a], result.nodes[a+b])
     addVertex(result.nodes[a+b], result.nodes[a])
-  shuffle(result)
+    
+proc initRandGraph*(n: int): Graph =
+  initRandGraph(n, rand(int(n*(n-1)/2) - (n-1)) + (n-1))
 
 func findIndSetRight(g: Graph): seq[Node] =
   for n in g.nodes:
@@ -92,8 +95,13 @@ func findIndSetLeft(g: Graph): seq[Node] =
     if not testLeft(n):
         result.add(n)
 
-func iSet*(g: Graph): seq[int] =
- return @[findIndSetLeft(g).len, findIndSetRight(g).len]
+func iSet*(g: Graph): int =
+  var l = findIndSetLeft(g).len
+  var r = findIndSetRight(g).len
+  if l > r:
+    return l
+  else:
+    return r
 
 #shuffles the positions of all the nodes within g
 #[
@@ -113,7 +121,7 @@ proc shuffle*(g: Graph): void =
 ]#
 let tabular = initTabular(
     ["Position", "Name", "Connected to", "Left Ind.", "Right Ind."],
-    [2         , 1     , 14           , 0          , 0],
+    [2         , 10     , 100           , 0          , 0],
 )
 
 
