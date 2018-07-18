@@ -45,6 +45,11 @@ proc initRandGraph*(n: int): Graph =
   #n-1 is min num of edges in a graph, n*(n-1)/2 is max
   #returns random number inbetween min and max
   var numEdges = rand(int(n*(n-1)/2) - (n-1)) + (n-1)
+  var seqE = seq[int]
+  for i in 1 .. n*(n-1)/2:
+    seqE.add(i)
+
+
   for i in 0 ..< numEdges:
     var n1 = rand(n-1)
     var n2 = rand(n-1)
