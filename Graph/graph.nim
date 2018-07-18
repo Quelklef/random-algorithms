@@ -12,11 +12,12 @@ type Graph = object
 func size*(g: Graph): int =
   return g.nodes.len
 
-#Double counts edges in undirected multigraphs
+#Counts edges in undirected multigraphs
 func numE(g: Graph): int =
  result = 0
  for i, n in g.nodes:
    result += n.vertices.len
+ result = int(result/2)
 
 #makes a sequence of nodes with names a, b, c, etc
 func seqNodes(num: int): seq[Node] =
@@ -45,24 +46,33 @@ proc initRandGraph*(n: int): Graph =
   #n-1 is min num of edges in a graph, n*(n-1)/2 is max
   #returns random number inbetween min and max
   var numEdges = rand(int(n*(n-1)/2) - (n-1)) + (n-1)
-  var seqE = seq[int]
-  for i in 1 .. n*(n-1)/2:
+  var seqE: seq[int] = @[]
+  #[
+  Explanation: of code below:
+  seqE contains numbers 1 to n(n-1)/2 with each number corresponding to an edge relationship between two vertices
+  Imagine an edge map
+  _| A B C D
+  A  X 1 2 3    (contains n-1 numbers)
+  B  X X 4 5    (contains n-2 numbers)
+  C  X X X 6    (contains n-3 numbers)
+  D  X X X X    ..n=0
+  Above is the what a value in seqE represents relationship-wise
+  (Note: we only care about SIMPLE GRAPHS as multigraphs are basically the same in regards to Turan's theorem)
+  Following this pattern, there are two numbers to keep track of: the column and row
+  In the code we keep track of a(the row) and a+b (the column)
+  ]#
+  for i in 1 .. int(n*(n-1)/2):
     seqE.add(i)
-
-
   for i in 0 ..< numEdges:
-    var n1 = rand(n-1)
-    var n2 = rand(n-1)
-    #[
-    Gets rid of self-cycles accending &&
-    Takes away the existence of multigraphs (0-1 edge between any two distinct vertices)
-      Problem: Doing the latter with this code will prove to be much more time-wasting the more complete the graph is
-    ]#
-    while n1 == n2 or connected(n1, n2):
-      n1 = rand(n-1)
-      n2 = rand(n-1)
-    addVertex(result.nodes[n1], result.nodes[n2])
-    addVertex(result.nodes[n2], result.nodes[n1]) #effectively makes it an undirected graph
+    var i = rand(seqE.len-1)
+    var b = seqE[i]
+    seqE.delete(i)
+    var a = 0
+    while b - (n - 1 - a) > 0:
+      b -= (n - 1 - a)
+      a += 1
+    addVertex(result.nodes[a], result.nodes[a+b])
+    addVertex(result.nodes[a+b], result.nodes[a])
   shuffle(result)
 
 func findIndSetRight(g: Graph): seq[Node] =
@@ -123,7 +133,7 @@ proc toString*(g: Graph): string =
     temp.add(" " & node.name)
   echo "Ind. Set Right (" & $r.len & "):", temp
   echo "Nodes: ", size(g)
-  echo "Edges: ", numE(g)/2
+  echo "Edges: ", numE(g)
 #[
 func iSet*(g: Graph): int =
   shuffle(g)
