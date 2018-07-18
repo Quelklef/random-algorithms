@@ -10,7 +10,7 @@ import misc
 const names = @["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf", "Hotel", "India", "Juliet", "Kilo", "Lima", "Mike",
 "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"]
 
-type Graph = object
+type Graph* = object
   nodes: seq[Node]
 
 func size*(g: Graph): int =
@@ -30,7 +30,7 @@ func seqNodes(num: int): seq[Node] =
     if i < names.len:
       newNode = initNode(names[i] & "")
     else:
-      newNode = initNode(chr(ord('a') + i - names.len) & "")
+      newNode = initNode("\"" & chr(ord('A') + i - names.len) & "\"")
     setPosition(newNode, i)
     result.add(newNode)
 
@@ -81,7 +81,7 @@ proc initRandGraph*(n: int, numEdges: int): Graph =
       a += 1
     addVertex(result.nodes[a], result.nodes[a+b])
     addVertex(result.nodes[a+b], result.nodes[a])
-    
+
 proc initRandGraph*(n: int): Graph =
   initRandGraph(n, rand(int(n*(n-1)/2) - (n-1)) + (n-1))
 
