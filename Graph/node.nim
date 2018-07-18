@@ -1,11 +1,11 @@
 type
   NodeObj = object
-    name*: char
+    name*: string
     position*: int64 #within each graph all nodes should have a unique position from 0 to number of nodes - 1
     vertices*: seq[Node]
   Node* = ref NodeObj
 
-func initNode*(n: char): Node =
+func initNode*(n: string): Node =
   new(result)
   result.name = n
   result.position = -1
