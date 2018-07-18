@@ -4,6 +4,6 @@ import random
 
 random.randomize()
 
-var g = initRandGraph(20)
+var g = initRandGraph(26)
 echo toString(g)
 #discard initNode('a')
