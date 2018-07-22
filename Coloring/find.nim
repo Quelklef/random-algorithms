@@ -48,3 +48,6 @@ proc find_noMAS_coloring*(C: static[int], N, K: int, iterThreshold: BiggestInt):
 
         if not col.has_MAS(K):
             return (flipCount: flips, coloring: some(col))
+
+proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, coloring: Option[Coloring[C]]] =
+    return find_noMAS_coloring(C, N, K, BiggestInt.high)
