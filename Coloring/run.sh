@@ -30,4 +30,14 @@ finishedCount="$(echo $files | grep '^ *$trials' | wc -l)"
 # The first N we want to work on is one after that
 lastN="$(($finishedCount + 1))"
 
-nim c -d:reckless -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN
+nohup nim c -d:reckless -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN > /dev/null &
+
+while [ 1 ]; do
+  wc -l *
+  echo "Press any key to exit"
+  read -t 3 -n 1
+  if [ "$?" = 0 ]; then
+    pgrep multiThread | xargs kill -9
+    exit
+  fi
+done
