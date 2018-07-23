@@ -21,19 +21,23 @@ dirname="C_$(printf %05d $1)__K_$(printf %05d $2)"
 mkdir -p "$dirname"
 cd "$dirname"
 
-# Get list of files with line counts
-# Exclude the last line (sums)
-files="$(wc -l * | sed \$d)"
-filesCount="$(echo $files | wc -l)"
-# Get count of files that have the desired number of trials
-finishedCount="$(echo $files | grep '^ *$trials' | wc -l)"
-# The first N we want to work on is one after that
-lastN="$(($finishedCount + 1))"
+if [ -z "$(ls)" ]; then
+  lastN=1
+else
+  # Get list of files with line counts
+  # Exclude the last line (sums)
+  files="$(wc -l * | sed \$d)"
+  filesCount="$(echo $files | wc -l)"
+  # Get count of files that have the desired number of trials
+  finishedCount="$(echo $files | grep '^ *$trials' | wc -l)"
+  # The first N we want to work on is one after that
+  lastN="$(($finishedCount + 1))"
+fi
 
 nohup nim c -d:reckless -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN > /dev/null &
 
 while [ 1 ]; do
-  wc -l *
+  [ -z "$(ls)" ] || wc -l *
   echo "Press any key to exit"
   read -t 3 -n 1
   if [ "$?" = 0 ]; then
