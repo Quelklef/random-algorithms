@@ -28,10 +28,18 @@ benchmark("C=2 randomize", 10_000):
   var col = initColoring(2, len)
   col.randomize()
 
-benchmark("C=2 equality", 10_000):
+benchmark("C=2 equality", 1_000_000):
   let len = random.rand(10_000)
   var col1 = initColoring(2, len)
   var col2 = initColoring(2, len)
   col1.randomize()
   col2.randomize()
   let res = col1 == col2
+
+benchmark("C=2 homoegenous", 10_000):
+  let len = random.rand(10_000)
+  var col = initColoring(2, len)
+  col.randomize()
+  var mask = initColoring(2, len)
+  mask.randomize()
+  let res = col.homogenous(mask)

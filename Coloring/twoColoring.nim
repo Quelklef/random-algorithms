@@ -15,30 +15,26 @@ func ceildiv(x, y: int): int =
   result = x div y
   if x mod y != 0: result.inc
 
+#[
+We make two assumptions with the TwoColoring type:
+1. Any insignificant bits stored in .data (e.g. the
+   last 60 bits in a size-4 coloring) are all zero.
+2. .data never contains more uint64s than it has to.
+We consider these assumptions to encapsulate a desired
+state, and ensure that this state is always the case.
+]#
 type TwoColoring* = object
   N*: int  # Size of coloring
   data*: seq[uint64]
 
 func initTwoColoring*(N: int): TwoColoring =
   result.N = N
-  result.data = @[]
-  for _ in 1 .. ceildiv(N, 64):
+  result.data = newSeq[uint64](ceildiv(N, 64))
+  for i in 0 ..< result.data.len:
     result.data.add(0'u64)
 
 func `==`*(col0, col1: TwoColoring): bool =
-  if col0.N != col1.N:
-    return false
-
-  if col0.N == 0:
-    return true
-
-  for i in 0 ..< col0.data.len - 1:
-    if col0.data[i] != col1.data[i]:
-      return false
-
-  let numIgnoreFromTail = (64 - (col0.N mod 64))
-  return (col0.data[col0.data.len - 1]) shl numIgnoreFromTail ==
-       (col1.data[col0.data.len - 1]) shl numIgnoreFromTail
+  return col0.data == col1.data
 
 func `[]`*(col: TwoColoring, i: int): range[0 .. 1]
 func `$`*(col: TwoColoring): string =
@@ -87,7 +83,7 @@ func `not`*(col: TwoColoring): TwoColoring =
 func allZeros(col: TwoColoring): bool =
   return col.data.all((u: uint64) => u == 0)
 
-func homoegenous*(col, mask: TwoColoring): bool =
+func homogenous*(col, mask: TwoColoring): bool =
   ## Are all the colors specified by the mask the
   ## same coloring?
   let masked = col and mask
