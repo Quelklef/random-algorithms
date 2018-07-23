@@ -34,7 +34,7 @@ func seqNodes(num: int): seq[Node] =
     setPosition(newNode, i)
     result.add(newNode)
 
-proc initGraph(n: int): Graph =
+proc initGraph*(n: int): Graph =
   result.nodes = seqNodes(n)
 
 proc shuffle*(g: var Graph): void =
@@ -49,38 +49,41 @@ proc shuffle*(g: var Graph): void =
   for i, n in g.nodes: #assign nodes position in accending order
     n.position = i
 
+#[
+Explanation: of code below:
+seqE contains numbers 1 to n(n-1)/2 with each number corresponding to an edge relationship between two vertices
+Imagine an edge map
+_| A B C D
+A  X 1 2 3    (contains n-1 numbers)
+B  X X 4 5    (contains n-2 numbers)
+C  X X X 6    (contains n-3 numbers)
+D  X X X X    ..n=0
+Above is the what a value in seqE represents relationship-wise
+(Note: we only care about SIMPLE GRAPHS as multigraphs are basically the same in regards to Turan's theorem)
+Following this pattern, there are two numbers to keep track of: the column and row
+In the code we keep track of a(the row) and a+b (the column)
+]#
+proc addE*(n:int, b:int, g:Graph): void =
+  var a = 0
+  var b = b
+  while b - (n - 1 - a) > 0:
+    b -= (n - 1 - a)
+    a += 1
+  addVertex(g.nodes[a], g.nodes[a+b])
+  addVertex(g.nodes[a+b], g.nodes[a])
 #makes simple graph
 #multigraphs can be treated as simple graphs for independent sets
-
 proc initRandGraph*(n: int, numEdges: int): Graph =
   result = initGraph(n)
   #n-1 is min num of edges in a graph, n*(n-1)/2 is max
   #returns random number inbetween min and max
   var seqE = toSeq(1 .. int(n*(n-1)/2))
-  #[
-  Explanation: of code below:
-  seqE contains numbers 1 to n(n-1)/2 with each number corresponding to an edge relationship between two vertices
-  Imagine an edge map
-  _| A B C D
-  A  X 1 2 3    (contains n-1 numbers)
-  B  X X 4 5    (contains n-2 numbers)
-  C  X X X 6    (contains n-3 numbers)
-  D  X X X X    ..n=0
-  Above is the what a value in seqE represents relationship-wise
-  (Note: we only care about SIMPLE GRAPHS as multigraphs are basically the same in regards to Turan's theorem)
-  Following this pattern, there are two numbers to keep track of: the column and row
-  In the code we keep track of a(the row) and a+b (the column)
-  ]#
+
   for i in 0 ..< numEdges:
     var i = rand(seqE.len-1)
     var b = seqE[i]
     seqE.del(i)
-    var a = 0
-    while b - (n - 1 - a) > 0:
-      b -= (n - 1 - a)
-      a += 1
-    addVertex(result.nodes[a], result.nodes[a+b])
-    addVertex(result.nodes[a+b], result.nodes[a])
+    addE(n, b, result)
 
 proc initRandGraph*(n: int): Graph =
   initRandGraph(n, rand(int(n*(n-1)/2) - (n-1)) + (n-1))
@@ -155,3 +158,24 @@ func iSet*(g: Graph): int =
   result = findIndSetLeft(g).len
   #result = findIndSetRight(g).len
 ]#
+
+iterator comb*(m:int, n:int): seq[int] =
+  var c = newSeq[int](n)
+  for i in 0 .. <n: c[i] = i
+
+  block outer:
+    if m == 1: break
+    while true:
+      yield c
+
+      var i = n-1
+      inc c[i]
+      if c[i] <= m - 1: continue
+
+      while c[i] >= m - n + i:
+        dec i
+        if i < 0: break outer
+      inc c[i]
+      while i < n-1:
+        c[i+1] = c[i] + 1
+        inc i

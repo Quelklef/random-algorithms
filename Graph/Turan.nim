@@ -29,13 +29,21 @@ proc turanToString*(n: int, e: int = -1): void =
   echo "Shuffled ", count, " times"
   echo toString(g)
 
-# Same as above minus all the print statements, and returns just the number of shuffles taken
-#[ TODO: As it is now, we're just creating a single random graph given a fixed number of vertices/edges,
-   instead I believe that we should go all graphs of a fixed number of vertices/edges and do a single shuffle of each.
-   And then we could just keep on shuffling all of these graphs of same vertices/edges
-   In terms of data, we could just give back the mean/median num shuffles
-   Use this https://rosettacode.org/wiki/Combinations#Nim in edge creation
-]#
+
+#Finds numShuffles for all simple graphs that have n nodes and e edges
+proc turanAll*(n:int, e:int): seq[int] =
+  var turanNum = float(n)/(2*e/n + 1)
+  for i in comb(n, e):
+    var g:Graph = initGraph(n)
+    var numS = 1
+    for j in i:
+      addE(n, j, g)
+    shuffle(g)
+    while float(iSet(g)) < turanNum:
+      numS += 1
+      shuffle(g)
+    result.add(numS)
+
 proc turan*(n: int, e: int = -1): int =
   result = 1
   var edges = e
@@ -62,8 +70,11 @@ proc report(values: varargs[string, `$`]) =
   outFile.writeRow(values)
 
 echo tabular.title()
+# TODO: for some reason n =1 doesn't work, shouldn't matter tho
 for n in 1 .. 10:
   for e in n-1 .. int(n*(n-1)/2):
-    report(n, e, turan(n, e))
+    #report(n, e, turan(n, e))
+    for o in turanAll(n, e):
+      report(n, e, o)
 
 close(outFile)
