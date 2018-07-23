@@ -20,7 +20,7 @@ func size*(g: Graph): int =
 func numE*(g: Graph): int =
  result = 0
  for i, n in g.nodes:
-   result += n.vertices.len
+   result += n.edges.len
  result = int(result/2)
 
 #makes a sequence of nodes with NATO phonetic alphabet names, if it runs out of those it switches to characters starting at 'a'
@@ -132,11 +132,11 @@ let tabular = initTabular(
 proc report(values: varargs[string, `$`]) =
     echo tabular.row(values)
 
-proc toString*(g: Graph): string =
+proc display*(g: Graph): void =
   echo tabular.title()
   for n in g.nodes:
     var edges = ""
-    for e in n.vertices:
+    for e in n.edges:
       edges.add(" " & e.name)
     #result.add("\n" & $n.position & " (" & n.name & "):" & edges)
     report(n.position, n.name, edges, not testLeft(n), not testRight(n))
@@ -160,8 +160,7 @@ func iSet*(g: Graph): int =
 ]#
 
 iterator comb*(m:int, n:int): seq[int] =
-  var c = newSeq[int](n)
-  for i in 0 .. <n: c[i] = i
+  var c = toSeq( 0 ..< n)
 
   block outer:
     if m == 1: break

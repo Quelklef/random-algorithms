@@ -5,7 +5,7 @@ import io
 
 random.randomize()
 
-proc turanToString*(n: int, e: int = -1): void =
+proc turanDisplay*(n: int, e: int = -1): void =
   var edges = e
   if float(e) > n*(n-1)/2:
     edges = int(n*(n-1)/2)
@@ -27,7 +27,7 @@ proc turanToString*(n: int, e: int = -1): void =
     count += 1
     shuffle(g)
   echo "Shuffled ", count, " times"
-  echo toString(g)
+  display(g)
 
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
