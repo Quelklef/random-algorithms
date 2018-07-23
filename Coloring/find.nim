@@ -12,14 +12,13 @@ iterator skip*[T](a, step: T, n: int): T =
 
 func has_MAS*[C](coloring: Coloring[C], K: int): bool =
   ## Find monochromatic arithmetic subseq of size K
-  var col = coloring
   # Iterate over step sizes, which is the distance between each item in the MAS
-  for stepSize in 1 .. (col.N - 1) div (K - 1):
-    for startLoc in 0 .. col.N - (K - 1) * stepSize - 1:
+  for stepSize in 1 .. (coloring.N - 1) div (K - 1):
+    for startLoc in 0 .. coloring.N - (K - 1) * stepSize - 1:
       block skipping:
-        let expectedColor = col[startLoc] # The expected color for the sequence
-        for i in skip(startLoc, stepSize, K):
-          if col[i] != expectedColor:
+        let expectedColor = coloring[startLoc] # The expected coloringor for the sequence
+        for i in skip(startLoc + stepSize, stepSize, K - 1):
+          if coloring[i] != expectedColor:
             break skipping # Go to next start loc
         return true
   return false
