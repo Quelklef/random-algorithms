@@ -1,10 +1,11 @@
-
 import strutils
 import math
 import hashes
 import random
+import sugar
+import sequtils
 
-from misc import rand_u64
+from misc import rand_u64, zipWith
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
@@ -28,6 +29,9 @@ func `==`*(col0, col1: TwoColoring): bool =
   if col0.N != col1.N:
     return false
 
+  if col0.N == 0:
+    return true
+
   for i in 0 ..< col0.data.len - 1:
     if col0.data[i] != col1.data[i]:
       return false
@@ -47,7 +51,7 @@ func `{}`(col: TwoColoring, i: int): range[0 .. 1] =
 
 func `{}=`(col: var TwoColoring, i: int, val: range[0 .. 1]) =
   if val == 1:
-    col.data[i div 64] = col.data[i div 64] or    (1'u64 shl (i mod 64))
+    col.data[i div 64] = col.data[i div 64] or      (1'u64 shl (i mod 64))
   else: # val == 0
     col.data[i div 64] = col.data[i div 64] and not (1'u64 shl (i mod 64))
 
@@ -73,6 +77,32 @@ proc randomize*(col: var TwoColoring): void =
   ## Randomize a two-coloring
   for i in 0 ..< col.data.len:
     col.data[i] = rand_u64()
+
+func `and`*(col0, col1: TwoColoring): TwoColoring =
+  return TwoColoring(N: col0.N, data: zipWith((a: uint64, b: uint64) => a and b, col0.data, col1.data))
+
+func `not`*(col: TwoColoring): TwoColoring =
+  return TwoColoring(N: col.N, data: col.data.map((u: uint64) => not u))
+
+func allZeros(col: TwoColoring): bool =
+  return col.data.all((u: uint64) => u == 0)
+
+func homoegenous*(col, mask: TwoColoring): bool =
+  ## Are all the colors specified by the mask the
+  ## same coloring?
+  let masked = col and mask
+  return (not masked).allZeros or masked == mask
+
+func shiftRightImpl(col: var TwoColoring, n: range[0 .. 64], overflow: uint64, i: int) =
+  if i == col.N:
+    return
+  let recurOverflow = col.data[i] shl (64 - n)
+  col.data[i] = (col.data[i] shr n) and overflow
+  col.shiftRightImpl(n, recurOverflow, i + 1)
+
+func `>>=`*(col: var TwoColoring, n: range[0 .. 64]) =
+  ## In-place shift right
+  col.shiftRightImpl(n, 0, 0)
 
 func extend*(col: var TwoColoring, amt: int): void =
   ## Extend the coloring by the given amount
