@@ -8,17 +8,14 @@ import coloring
 import find
 import io
 
+import nimprof
+
 #[
 4 command-line params:
-
-C:
-  C
-K:
-  K
-trials:
-  Number of desired trials for each datapoint
-N:
-  The N to start at
+C: C
+K: K
+trials: Number of desired trials for each datapoint
+N: The N to start at
 ]#
 
 when not defined(reckless):
@@ -40,12 +37,6 @@ const threadCount = 8
 var threads: array[threadCount, Thread[int]]
 var nextN = paramStr(4).parseInt  # The next N we want to work on
 
-#const tabular = initTabular(
-#  ["C", "K", "N", "Flips"               , "Coloring"],
-#  [2  , 3  , 4  , len($high(BiggestInt)), 100       ],
-#)
-#echo(tabular.title())
-
 proc numLines(f: string): int =
   return f.readFile.string.countLines - 1
 
@@ -65,11 +56,11 @@ proc doTrials(i: int) {.thread.} =
   try:
     for _ in existingTrials ..< trialCount:
       let (flips, coloring) = find_noMAS_coloring(C, N, K)
-      file.writeRow(N, flips, coloring.map(x => $x).get("-"))
+      file.writeRow(N, flips, $coloring)
   finally:
     close(file)
 
-  doTrials(i)
+  #doTrials(i)
 
 for i in 0 ..< threadCount:
   threads[i].createThread(doTrials, i)
