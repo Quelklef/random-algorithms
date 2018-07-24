@@ -1,96 +1,83 @@
-
-import twoColoring
-import nColoring
-
-export TwoColoring
-export NColoring
-
-import hashes
 import macros
+import sequtils
 
-macro coloringImpl*(C: static[int]): untyped =
-  if C == 2:
-    return ident("TwoColoring")
-  else:
-    return nnkBracketExpr.newTree(ident("NColoring"), newIntLitNode(C))
+import coloringDef
 
-type Coloring*[C: static[int]] = object
-  data*: coloringImpl(C)
+from twoColoring import nil
+from nColoring import nil
 
 func N*[C](col: Coloring[C]): int =
-  return col.data.N
-
-func initColoring*(C: static[int], N: int): Coloring[C] =
   when C == 2:
-    result.data = initTwoColoring(N)
+    return col.N
   else:
-    result.data = initNColoring(C, N)
+    return nColoring.N(col)
 
-template export_varColoring_void(function: untyped): untyped =
-  proc `function`*(col: var Coloring) {.inline.} =
-    function(col.data)
+proc `@`(n: NimNode): seq[NimNode] {.compileTime.} =
+  result = @[]
+  for son in n:
+    result.add(son)
 
-export_varColoring_void(randomize)
+#dumpTree:
+#  func initColoring*(C: static[int], N: int): Coloring[C] =
+#    when C == 2:
+#      return twoColoring.initColoring(C, N)
+#    else:
+#      return nColoring.initColoring(C, N)
 
-template export_varColoring_uint64_void(function: untyped): untyped =
-  func `function`*(col: var Coloring, amt: uint64) {.inline.} =
-    function(col.data, amt)
+proc dispatchOne(decl: NimNode): NimNode {.compileTime.} =
+  var reference = decl[0]
+  if reference.kind == nnkPostFix:  # Unwrap from export
+    reference = reference[1]
 
-export_varColoring_uint64_void(`+=`)
+  proc makeCall(n: NimNode): NimNode =
+    result = nnkCall.newTree(quote do: `n`.`reference`)
+    for formalParam_s in @(decl[3])[1 ..< ^0]:  # Skip the first param, which is return type
+      result.add(@formalParam_s[0 ..< ^2])  # Extract reference from param(s)
+    result = (quote do: return `result`)
 
-template export_Coloring_range_0S_range_0C(function: untyped): untyped =
-  func `function`*[C](col: Coloring[C], i: int): range[0 .. C - 1] {.inline.} =
-    return function(col.data, i)
+    # Add generic params if appropriate
+    let hasGenerics = decl[2].len != 0
+    if hasGenerics:
+      # Replace naked reference to proc with bracket expr
+      result[0] = nnkBracketExpr.newTree(@[result[0]] & @decl[2][0])
+    
+  var twoColoringCall = makeCall(newIdentNode("twoColoring"))
+  var nColoringCall = makeCall(newIdentNode("nColoring"))
 
-export_Coloring_range_0S_range_0C(`[]`)
+  result = decl.copyNimTree
+  result[6] = quote do:  # Proc body
+    when C == 2: `twoColoringCall`
+    else: `nColoringCall`
 
-template export_varColoring_range_0S_range_0C_void(function: untyped): untyped =
-  func `function`*[C](col: var Coloring[C], i: int, val: range[0 .. C - 1]) {.inline.} =
-    function(col.data, i, val)
+  echo(result.repr)
 
-export_varColoring_range_0S_range_0C_void(`[]=`)
+macro dispatch(decls: untyped): untyped =
+  result = nnkStmtList.newTree(@decls.map(dispatchOne))
 
-template export_Coloring_string(function: untyped): untyped =
-  func `function`*[C](col: Coloring[C]): string {.inline.} =
-    return function(col.data)
-
-export_Coloring_string(`$`)
-
-template export_Coloring_Hash(function: untyped): untyped =
-  func `function`*[C](col: Coloring[C]): Hash {.inline.} =
-    return function(col.data)
-
-export_Coloring_Hash(hash)
-
-template export_Coloring_Coloring_bool(function: untyped): untyped =
-  func `function`*[C](colA, colB: Coloring[C]): bool {.inline.} =
-    return function(colA.data, colB.data)
-
-export_Coloring_Coloring_bool(`==`)
-
-template export_varColoring_int_void(function: untyped): untyped =
-  func `function`*[C](col: var Coloring[C], amt: int): void =
-    function(col.data, amt)
-
-export_varColoring_int_void(extend)
-
-template export_Coloring_Coloring2_bool(function: untyped): untyped =
-  func `function`*[C](col: Coloring[C], mask: Coloring[2]): bool =
-    function(col.data, mask.data)
-
-export_Coloring_Coloring2_bool(homogenous)
-
-template export_varColoring_range_064_void(function: untyped): untyped =
-  func `function`*[C](col: var Coloring[C], n: range[0 .. 64]) =
-    function(col, n)
-
-export_varColoring_range_064_void(`>>=`)
+dispatch:
+  func initColoring*(C: static[int], N: int): Coloring[C]
+  func `==`*[C: static[int]](col0, col1: Coloring[C]): bool
+  func `[]`*[C: static[int]](col: Coloring[C], i: int): range[0 .. C - 1]
+  func `[]=`*[C: static[int]](col: var Coloring[C], i: int, val: range[0 .. C - 1])
+  func `+=`*[C: static[int]](col: var Coloring[C], amt: uint64)
+  func `$`*[C: static[int]](col: Coloring[C]): string
+  func randomize*[C: static[int]](col: var Coloring[C])
 
 iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =
   for i in 0 ..< col.N:
-    yield col.data[i]
+    yield col[i]
 
 iterator pairs*[C](col: Coloring[C]): (int, range[0 .. C - 1]) =
   for i in 0 ..< col.N:
-    yield (i, col.data[i])
+    yield (i, col[i])
 
+func initColoring(C: static[int], s: string): Coloring[C] =
+  result = initColoring(C, s.len)
+  for i, c in s:
+    result[i] = ord(c) - ord('0')
+
+
+
+when isMainModule:
+  var c2: Coloring[2] = initColoring(2, 100)
+  c2[0] = 1

@@ -40,8 +40,6 @@ func joinSurround*(s: seq[string], v: string): string =
   ## Like `join`, but also includes the dlimiter at the beginning and end
   return v & s.join(v) & v
 
-# -- #
-
 func replaceMany*(s: string, repl: Table[string, string]): string =
   ## Behaviour is undefined if duplicate keys exist
   result = ""
@@ -68,3 +66,10 @@ func zipWith*[T](f: proc(a, b: T): T, s0, s1: seq[T]): seq[T] =
   result = newSeq[T](resLen)
   for i in 0 ..< resLen:
     result[i] = f(s0[i], s1[i])
+
+# -- #
+
+func ceildiv*(x, y: int): int =
+  result = x div y
+  if x mod y != 0:
+    inc(result)
