@@ -26,3 +26,9 @@ or
 or
     a a+d^2 a+d^2
 
+
+
+-----
+take a coloring(C, N)
+See if exists two points same color square apart
+Record how long it takes to find a coloring for which this exists
