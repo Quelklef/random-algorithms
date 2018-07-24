@@ -28,13 +28,13 @@ suite "Testing twoColoring":
 
   testMany "(C=2) initColoring / $":
     let s = genStringNum(2, rand(500))
-    check($ !s == s)
+    require($ !s == s)
 
   testMany "(C=2) []":
     let s = genStringNum(2, rand(500))
     let col = !s
     for i, car in s:
-      check($col[i] == $car)
+      require($col[i] == $car)
 
   testMany "(C=2) >>=":
     let shift = rand(1 .. 63)
@@ -43,25 +43,30 @@ suite "Testing twoColoring":
     let befor = ($col)[0 ..< ^shift]
     col >>= shift
     let after = ($col)[shift ..< ^0]
-    check(befor == after)
+    require(befor == after)
 
   testMany "(C=2) == / !=":
     let len = rand(1 .. 500)
     let s = genStringNum(2, len)
     var c0 = !s
     var c1 = !s
-    check(c0 == c1)
+    require(c0 == c1)
     let pos = rand(len - 1)
     c0[pos] = if c0[pos] == 0: 1 else: 0
-    check(c0 != c1)
+    require(c0 != c1)
 
   test "(C=2) homoegenous":
-    check homogenous(!"010", !"101")
-    check homogenous(!"11111", !"11111")
-    check homogenous(!"00100", !"11011")
-    check homogenous(!"10101010101", !"10101010101")
+    require homogenous(!"010", !"101")
+    require homogenous(!"11111", !"11111")
+    require homogenous(!"00100", !"11011")
+    require homogenous(!"10101010101", !"10101010101")
 
-  test "has_MAS":
-    discard
+  test "(C=2) has_MAS":
+    require has_MAS(!"010", 2)
+    require has_MAS(!"111111111111", 5)
+    require has_MAS(!"0001000", 3)
+    require(not has_MAS(!"00001111", 5))
+    require(not has_MAS(!"0001000", 5))
+    require(not has_MAS(!"0000111100001111", 5))
 
   discard  # Run once after each test
