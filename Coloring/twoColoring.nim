@@ -107,7 +107,8 @@ func homogenous*(col, mask: TwoColoring): bool =
   ## same coloring?
   return (col and mask).allZeros or (col or not mask).allOnes
 
-func shiftRightImpl(col: var TwoColoring, n: range[0 .. 64], overflow: uint64, i: int) =
+func shiftRightImpl(col: var TwoColoring, n: range[1 .. 63], overflow: uint64, i: int) =
+  # n cant be 0 or 64 because for some reason `(v: uint64) shl/shr 64` is a noop
   # Note that we implement this as a "shift left" since the colorings are stored
   # in order of significance, not canonical order
   if i >= col.data.len:
