@@ -74,7 +74,7 @@ proc probTuran*(n: int, inc: float): void =
       sums[index] += numS
     index += 1
   for i, n in sums:
-    echo "p: ",float(i) * inc, ", average shuffles: " ,n / numTrials
+    echo "p: ",float(i) * inc, ", average shuffles: " ,n / numTrials #I'm assuming well behaved data but perhaps median would be more appropriate, distribution needs to be looked at
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
 proc turanAll*(n:int, e:int): seq[int] =
