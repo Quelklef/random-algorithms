@@ -1,5 +1,7 @@
 import options
 import hashes
+import sets
+import tables
 
 import coloring
 
@@ -37,36 +39,57 @@ when defined(provisional):
         mask <<= 1
     return false
 
-  import tables
+  type ColoringPartialSet[C: static[int]] = ref object
+    ## Allows inclusion like a set
+    ## The `contains` method is special.
+    ## It guarantees the following and ONLY the following:
+    ## ``s.contains(x)`` implies that there exists some
+    ## continuous subsequence of ``x`` which has been
+    ## included in ``s``.
+    ## (Why is this useful? Because if you only add
+    ## colorings which have a MAS to ``s``, then
+    ## ``x in s`` implies ``has_MAS(x)``.)
+    included: bool
+    branches: array[C, ColoringPartialSet[C]]
 
-  # knownValues[(N, K)][Coloring] = has_MAS
+  func initColoringPartialSet[C](): ColoringPartialSet[C] =
+    new(result)
+
+  func incl[C](s: ColoringPartialSet[C], x: Coloring[C]) =
+    var s = s
+    for color in x:
+      if s.branches[color].isNil:
+        s.branches[color] = initColoringPartialSet[C]()
+      s = s.branches[color]
+    s.included = true
+
+  func contains[C](s: ColoringPartialSet[C], x: Coloring[C]): bool =
+    var s = s
+    if s.isNil: return false
+    if s.included: return true
+    for color in x:
+      s = s.branches[color]
+      if s.isNil: return false
+      if s.included: return true
+
+  # knownValues[K][Coloring] = has_MAS
   # TODO: Support C != 2  (how??)
-  var knownValues = newTable[(int, int), TableRef[Coloring[2], bool]]()
+  var knownHasMAS = newTable[int, ColoringPartialSet[2]]()
 
   proc has_MAS*[C: static[int]](coloring: Coloring[C], K: int): bool =
     static: assert C == 2
-    let NK = (coloring.N, K)
-    if NK notin knownValues:
-      knownValues[NK] = newTable[Coloring[2], bool]()
 
-    if coloring in knownValues[NK]:
-      return knownValues[NK][coloring]
+    if K notin knownHasMAS:
+      knownHasMAS[K] = initColoringPartialSet[2]()
+    let s = knownHasMAS[K]
 
-    block returnn:
-      if coloring.N <= 1:
-        # Cannot do fancy algorithm unless N >= 2
-        result = has_MAS_pure(coloring, K)
-      else:
-        var child = coloring
-        while child.N >= 1:
-          child.resize(child.N - 1)
-          let CNK = (child.N, K)
-          if CNK in knownValues and child in knownValues[CNK]:
-            result = knownValues[CNK][child] or has_MAS_pure(coloring, K, child.N)
-            break returnn
-        result = has_MAS_pure(coloring, K)
+    let has = coloring in s
+    if has:
+      return true
 
-    knownValues[NK][coloring] = result
+    result = has_MAS_pure(coloring, K)
+    if result:
+      knownHasMAS[K].incl(coloring)
 
 else:
   func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =

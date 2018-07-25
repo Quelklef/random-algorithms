@@ -123,6 +123,16 @@ func `<<=`*(col: var TwoColoring, n: range[1 .. 63]) =
 func hash*(col: TwoColoring): Hash =
   return !$(0 !& hash(col.N) !& hash(col.data))
 
+func downsizeOnce*(col: var TwoColoring) =
+  ## Resize to one less
+  when compileOption("boundChecks"):
+    if col.N <= 0:
+      raise ValueError.newException("Coloring must be bigger than length 0")
+  col[col.N - 1] = 0
+  col.N = col.N - 1
+  if col.N mod 64 == 0:  # Remove final ui if needed
+    col.data.del(col.data.len - 1)
+
 func resize*(col: var TwoColoring, size: Natural) =
   if col.N > size:
     let uiDropCount = (col.N - size) div 64

@@ -31,6 +31,7 @@ template export_varColoring_void(function: untyped): untyped =
     function(col.data)
 
 export_varColoring_void(randomize)
+export_varColoring_void(downsizeOnce)
 
 template export_varColoring_uint64_void(function: untyped): untyped =
   func `function`*(col: var Coloring, amt: uint64) {.inline.} =
