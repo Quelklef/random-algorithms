@@ -1,50 +1,72 @@
-
 import unittest
 import macros
-import strutils
-import streams
-import times
-import sets
-import os
-import terminal
+import random
 
 import coloring
-import twoColoring
 import find
 
+proc genStringNum(base, length: int): string =
+  ## Generate s string of given length that
+  ## encodes a random number of the given base
+  result = ""
+  for _ in 1 .. length:
+    result &= chr(rand(base - 1) + ord('0'))
+
+template testMany(name: string, body: untyped): untyped =
+  test name:
+    for _ in 1 .. 100:
+      body
+
+func `!`(s: string): Coloring[2] =
+  initColoring(2, s)
 
 suite "Testing twoColoring":
-  var emptyTwoColoring, randomTwoColoring, fromStringColoring1, fromStringColoring2, MAScoloring, noMAScoloring: TwoColoring
-
   setup:
-  emptyTwoColoring = initTwoColoring(64)
-  randomTwoColoring = initTwoColoring(64)
-  randomize(randomTwoColoring)
-  fromStringColoring1 = fromString("10110")
-  fromStringColoring2 = fromString("10110")
-  MAScoloring = fromString("10011010111010")
-  noMAScoloring = fromString("0101101010011101100")
+    discard  # Run before each test
   teardown:
-  echo "run after each test"
+    discard  # Run after each test
 
-  test "TwoColoring fromString":
-  check($fromStringColoring1 == "10110")
+  testMany "(C=2) initColoring / $":
+    let s = genStringNum(2, rand(500))
+    require($ !s == s)
 
-  test "TwoColoring ==":
-  check(emptyTwoColoring == emptyTwoColoring)
-  check(randomTwoColoring == randomTwoColoring)
-  check(fromStringColoring1 == fromStringColoring2)
-  #require(true)
+  testMany "(C=2) []":
+    let s = genStringNum(2, rand(500))
+    let col = !s
+    for i, car in s:
+      require($col[i] == $car)
 
-  test "TwoColoring []":
-  check(fromStringColoring1[0] == 1)
-  check(fromStringColoring1[1] == 0)
-  check(fromStringColoring1[2] == 1)
-  check(fromStringColoring1[3] == 1)
-  check(fromStringColoring1[4] == 0)
+  testMany "(C=2) >>=":
+    let shift = rand(1 .. 63)
+    let s = genStringNum(2, 64 + rand(300))
+    var col = !s
+    let befor = ($col)[0 ..< ^shift]
+    col >>= shift
+    let after = ($col)[shift ..< ^0]
+    require(befor == after)
 
-  test "has_MAS":
-  check(has_MAS(cast [Coloring[2]](MAScoloring), 5))
-  check(not has_MAS(cast [Coloring[2]](noMAScoloring), 5))
+  testMany "(C=2) == / !=":
+    let len = rand(1 .. 500)
+    let s = genStringNum(2, len)
+    var c0 = !s
+    var c1 = !s
+    require(c0 == c1)
+    let pos = rand(len - 1)
+    c0[pos] = if c0[pos] == 0: 1 else: 0
+    require(c0 != c1)
 
-  echo "suite teardown: run once after the tests"
+  test "(C=2) homoegenous":
+    require homogenous(!"010", !"101")
+    require homogenous(!"11111", !"11111")
+    require homogenous(!"00100", !"11011")
+    require homogenous(!"10101010101", !"10101010101")
+
+  test "(C=2) has_MAS":
+    require has_MAS(!"010", 2)
+    require has_MAS(!"111111111111", 5)
+    require has_MAS(!"0001000", 3)
+    require(not has_MAS(!"00001111", 5))
+    require(not has_MAS(!"0001000", 5))
+    require(not has_MAS(!"0000111100001111", 5))
+
+  discard  # Run once after each test

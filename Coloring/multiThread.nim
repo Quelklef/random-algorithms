@@ -8,8 +8,6 @@ import coloring
 import find
 import io
 
-import nimprof
-
 #[
 4 command-line params:
 C: C
@@ -56,12 +54,16 @@ proc doTrials(i: int) {.thread.} =
   try:
     for _ in existingTrials ..< trialCount:
       let (flips, coloring) = find_noMAS_coloring(C, N, K)
-      file.writeRow(N, flips, $coloring)
+      #file.writeRow(N, flips, $coloring)
+      file.writeRow(flips)
   finally:
     close(file)
 
-  #doTrials(i)
+  doTrials(i)
 
-for i in 0 ..< threadCount:
-  threads[i].createThread(doTrials, i)
-joinThreads(threads)
+proc main() =
+  for i in 0 ..< threadCount:
+    threads[i].createThread(doTrials, i)
+  joinThreads(threads)
+
+main()

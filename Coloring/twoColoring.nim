@@ -15,6 +15,16 @@ func ceildiv(x, y: int): int =
   result = x div y
   if x mod y != 0: result.inc
 
+#[
+We encode two-colorings as sequences of uint64s.
+Each uint64 (henceforth 'uis') represent 64 colorings.
+The LEAST SIGNIFICANT digit of each ui represent the
+first coloring, and the MOST SIGNIFICANT represents the
+last coloring.
+
+We maintain the following state:
+- There are never more uis than there need to be
+]#
 type TwoColoring* = object
   N*: int  # Size of coloring
   data*: seq[uint64]
@@ -26,25 +36,20 @@ func initTwoColoring*(N: int): TwoColoring =
     result.data.add(0'u64)
 
 func `==`*(col0, col1: TwoColoring): bool =
-  if col0.N != col1.N:
-    return false
+  return col0.N == col1.N and col0.data == col1.data
 
-  if col0.N == 0:
-    return true
-
-  for i in 0 ..< col0.data.len - 1:
-    if col0.data[i] != col1.data[i]:
-      return false
-
-  let numIgnoreFromTail = (64 - (col0.N mod 64))
-  return (col0.data[col0.data.len - 1]) shl numIgnoreFromTail ==
-       (col1.data[col0.data.len - 1]) shl numIgnoreFromTail
+func asBinReversed(x: uint64): string =
+  ## Return the binary string representation of a uint64, reversed
+  result = ""
+  for i in 0 ..< 64:
+    result &= $(1'u64 and (x shr i))
 
 func `[]`*(col: TwoColoring, i: int): range[0 .. 1]
 func `$`*(col: TwoColoring): string =
   result = ""
-  for i in 0 ..< col.N:
-    result.add($col[i])
+  for ui in col.data:
+    result &= asBinReversed(ui)
+  result = result[0 ..< col.N]
 
 func `{}`(col: TwoColoring, i: int): range[0 .. 1] =
   return 1'u64 and (col.data[i div 64] shr (i mod 64))
@@ -79,7 +84,14 @@ proc randomize*(col: var TwoColoring): void =
     col.data[i] = rand_u64()
 
 func `and`*(col0, col1: TwoColoring): TwoColoring =
+  when not defined(reckless):
+    assert col0.N == col1.N
   return TwoColoring(N: col0.N, data: zipWith((a: uint64, b: uint64) => a and b, col0.data, col1.data))
+
+func `or`*(col0, col1: TwoColoring): TwoColoring =
+  when not defined(reckless):
+    assert col0.N == col1.N
+  return TwoColoring(N: col0.N, data: zipWith((a: uint64, b: uint64) => a or b, col0.data, col1.data))
 
 func `not`*(col: TwoColoring): TwoColoring =
   return TwoColoring(N: col.N, data: col.data.map((u: uint64) => not u))
@@ -87,43 +99,24 @@ func `not`*(col: TwoColoring): TwoColoring =
 func allZeros(col: TwoColoring): bool =
   return col.data.all((u: uint64) => u == 0)
 
-func homoegenous*(col, mask: TwoColoring): bool =
+func allOnes(col: TwoColoring): bool =
+  return col.data.all((u: uint64) => u == high(uint64))
+
+func homogenous*(col, mask: TwoColoring): bool =
   ## Are all the colors specified by the mask the
   ## same coloring?
-  let masked = col and mask
-  return (not masked).allZeros or masked == mask
+  return (col and mask).allZeros or (col or not mask).allOnes
 
-func shiftRightImpl(col: var TwoColoring, n: range[0 .. 64], overflow: uint64, i: int) =
-  if i == col.N:
+func shiftRightImpl(col: var TwoColoring, n: range[1 .. 63], overflow: uint64, i: int) =
+  # n cant be 0 or 64 because for some reason `(v: uint64) shl/shr 64` is a noop
+  # Note that we implement this as a "shift left" since the colorings are stored
+  # in order of significance, not canonical order
+  if i >= col.data.len:
     return
-  let recurOverflow = col.data[i] shl (64 - n)
-  col.data[i] = (col.data[i] shr n) and overflow
+  let recurOverflow = col.data[i] shr (64 - n)
+  col.data[i] = (col.data[i] shl n) or overflow
   col.shiftRightImpl(n, recurOverflow, i + 1)
 
 func `>>=`*(col: var TwoColoring, n: range[0 .. 64]) =
   ## In-place shift right
   col.shiftRightImpl(n, 0, 0)
-
-func extend*(col: var TwoColoring, amt: int): void =
-  ## Extend the coloring by the given amount
-
-  # TODO this can be slightly faster, but it's not worth the effort rn
-  # First, reset the bits that are going to be exposed
-  # i.e. already exist in col.data but aren't yet in
-  # bounds
-  let numToExpose = min(col.data.len * 64 - col.N, amt)
-  for i in 0 ..< numToExpose:
-    col{col.N + i} = 0
-
-  # How many more uints are we going to need?
-  let needed_uint_c = ceildiv(col.N + amt, 64) - col.data.len
-  for _ in 0 ..< needed_uint_c:
-    col.data.add(0'u64)
-
-  col.N += amt
-
-func fromString*(val: string): TwoColoring =
-  result = initTwoColoring(val.len)
-  for index, chr in val:
-    result[index] = ord(chr) - ord('0')
-

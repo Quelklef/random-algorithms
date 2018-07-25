@@ -40,8 +40,6 @@ func joinSurround*(s: seq[string], v: string): string =
   ## Like `join`, but also includes the dlimiter at the beginning and end
   return v & s.join(v) & v
 
-# -- #
-
 func replaceMany*(s: string, repl: Table[string, string]): string =
   ## Behaviour is undefined if duplicate keys exist
   result = ""

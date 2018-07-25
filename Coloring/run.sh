@@ -38,9 +38,9 @@ nohup nim c -d:reckless -d:release --threads:on -r ../../multiThread $1 $2 $3 $l
 
 while [ 1 ]; do
   [ -z "$(ls)" ] || wc -l *
-  echo "Press any key to exit"
+  echo "Working on C=$1 K=$2 ($3 trials). Press any key to exit."
   read -t 3 -n 1
-  if [ "$?" = 0 ]; then
+  if [ "$?" = 0 ]; then  # If user inputted
     pgrep multiThread | xargs kill -9
     exit
   fi
