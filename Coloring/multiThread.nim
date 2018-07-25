@@ -48,6 +48,8 @@ proc createFile(f: string) =
 
 var tLock: Lock
 initLock(tLock)
+# termWidth and termHeight must be constants for the threads to work properly
+# Besides, some of the formatting is hardcoded, so it won't work with other sizes. lol.
 const termWidth = 271
 const termHeight = 68 - 1
 const topPad = 7  # How much the top rows take up
@@ -127,8 +129,8 @@ proc doTrials(i: int) {.thread.} =
 
         withLock(tLock):
           var p = ("$#s $#f" % [
-            align(duration.formatFloat(ffDecimal, precision = 4), 16),
-            align($flips, 15),
+            align(duration.formatFloat(ffDecimal, precision = 4), 13),
+            align($flips, 14),
           ])
           reportTrial(i, t + 1, p)
 
