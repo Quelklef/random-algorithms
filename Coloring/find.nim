@@ -39,57 +39,56 @@ when defined(provisional):
         mask <<= 1
     return false
 
-  type ColoringPartialSet[C: static[int]] = ref object
-    ## Allows inclusion like a set
-    ## The `contains` method is special.
-    ## It guarantees the following and ONLY the following:
-    ## ``s.contains(x)`` implies that there exists some
-    ## continuous subsequence of ``x`` which has been
-    ## included in ``s``.
-    ## (Why is this useful? Because if you only add
-    ## colorings which have a MAS to ``s``, then
-    ## ``x in s`` implies ``has_MAS(x)``.)
-    included: bool
-    branches: array[C, ColoringPartialSet[C]]
+  type ColoringMagic[C: static[int]] = ref object
+    known: bool
+    hasMAS: bool
+    branches: array[C, ColoringMagic[C]]
 
-  func initColoringPartialSet[C](): ColoringPartialSet[C] =
+  func initColoringMagic[C](): ColoringMagic[C] =
     new(result)
 
-  func incl[C](s: ColoringPartialSet[C], x: Coloring[C]) =
-    var s = s
+  func know[C](cm: ColoringMagic[C], x: Coloring[C], hasMAS: bool) =
+    var cm = cm
     for color in x:
-      if s.branches[color].isNil:
-        s.branches[color] = initColoringPartialSet[C]()
-      s = s.branches[color]
-    s.included = true
+      if cm.branches[color].isNil:
+        cm.branches[color] = initColoringMagic[C]()
+      cm = cm.branches[color]
+    cm.known = true
+    cm.hasMAS = hasMAS
 
-  func contains[C](s: ColoringPartialSet[C], x: Coloring[C]): bool =
-    var s = s
-    if s.isNil: return false
-    if s.included: return true
-    for color in x:
-      s = s.branches[color]
-      if s.isNil: return false
-      if s.included: return true
+  func lookup[C](cm: ColoringMagic[C], x: Coloring[C]): tuple[pathLen: int, found: bool, hasMAS: bool] =
+    var cm = cm
+    template logic(pathLen) {.dirty.} =
+      if cm.isNil:
+        return (0, false, false)
+      if cm.known:
+        if cm.hasMAS:
+          return (0, true, true)
+        else:
+          result = (pathLen, true, false)
+
+    logic(0)
+    for i, color in x:
+      cm = cm.branches[color]
+      logic(i + 1)
 
   # knownValues[K][Coloring] = has_MAS
   # TODO: Support C != 2  (how??)
-  var knownHasMAS = newTable[int, ColoringPartialSet[2]]()
+  var knownHasMAS = newTable[int, ColoringMagic[2]]()
 
   proc has_MAS*[C: static[int]](coloring: Coloring[C], K: int): bool =
     static: assert C == 2
 
     if K notin knownHasMAS:
-      knownHasMAS[K] = initColoringPartialSet[2]()
-    let s = knownHasMAS[K]
+      knownHasMAS[K] = initColoringMagic[2]()
+    let cm = knownHasMAS[K]
 
-    let has = coloring in s
-    if has:
+    let (pathLen, found, hasMAS) = cm.lookup(coloring)
+    if found and hasMAS:
       return true
+    result = has_MAS_pure(coloring, K, pathLen)
 
-    result = has_MAS_pure(coloring, K)
-    if result:
-      knownHasMAS[K].incl(coloring)
+    cm.know(coloring, result)
 
 else:
   func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
