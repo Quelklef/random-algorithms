@@ -71,6 +71,18 @@ proc addE*(n:int, b:int, g:Graph): void =
     a += 1
   addVertex(g.nodes[a], g.nodes[a+b])
   addVertex(g.nodes[a+b], g.nodes[a])
+
+#Probabilsitc way of creating edges for a graph
+#iterate through all possible edges, p chance of creating an edge there
+proc initProbGraph*(n: int, p: float): Graph =
+  result = initGraph(n)
+  #n-1 is min num of edges in a graph, n*(n-1)/2 is max
+  #returns random number inbetween min and max
+
+  for b in 1 .. int(n*(n-1)/2):
+    if rand(1.0) < p:
+      addE(n, b, result)
+
 #makes simple graph
 #multigraphs can be treated as simple graphs for independent sets
 proc initRandGraph*(n: int, numEdges: int): Graph =
