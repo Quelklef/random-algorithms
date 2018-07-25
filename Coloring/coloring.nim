@@ -73,12 +73,19 @@ template export_varColoring_int_void(function: untyped): untyped =
     function(col.data, amt)
 
 export_varColoring_int_void(`>>=`)
+export_varColoring_int_void(`<<=`)
 
 template export_Coloring_Coloring2_bool(function: untyped): untyped =
   func `function`*[C](col: Coloring[C], mask: Coloring[2]): bool =
     function(col.data, mask.data)
 
 export_Coloring_Coloring2_bool(homogenous)
+
+template export_varColoring_int_void(function: untyped): untyped =
+  func `function`*[C](col: var Coloring[C], n: int) =
+    function(col.data, n)
+
+export_varColoring_int_void(resize)
 
 
 iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =

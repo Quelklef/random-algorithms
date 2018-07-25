@@ -31,7 +31,7 @@ template benchmark(name: string, body: untyped): untyped =
       body
       let duration = epochTime() - t0
       echo("  Benchmark $#: $#s" % [
-        name.alignLeft(25),
+        name.alignLeft(45),
         duration.formatFloat(ffDecimal, precision = 10),
       ])
 
@@ -42,7 +42,7 @@ template testMany(name: string, body: untyped): untyped =
 
 template benchmarkMany(name: string, body: untyped): untyped =
   benchmark name:
-    1000.times:
+    10_000.times:
       body
 
 template benchmarkTest(name: string, body: untyped): untyped =
@@ -81,6 +81,15 @@ suite "Testing twoColoring":
     let after = ($col)[shift ..< ^0]
     require(befor == after)
 
+  benchmarkTestMany "(C=2) <<=":
+    let shift = rand(1 .. 63)
+    let s = genStringNum(2, 64 + rand(300))
+    var col = !s
+    let befor = ($col)[shift ..< ^0]
+    col <<= shift
+    let after = ($col)[0 ..< ^shift]
+    require(befor == after)
+
   benchmarkTestMany "(C=2) == / !=":
     let len = rand(1 .. 500)
     let s = genStringNum(2, len)
@@ -112,18 +121,58 @@ suite "Testing twoColoring":
     require(not has_MAS(!"0001000", 5))
     require(not has_MAS(!"0000111100001111", 5))
 
+  test "(C=2) has_MAS / has_MAS_pure (incremental)":
+    for K in 2 .. 8:
+      for N in 5 .. 10:  # Small N so likely to have duplicates
+        1_000.times:
+          let col = !genStringNum(2, N)
+          let expected = has_MAS_correct(col, K)
+          when defined(provisional):
+            require(has_MAS_pure(col, K) == expected)
+          require(has_MAS(col, K) == expected)
+
+  benchmark "(C=2) has_MAS (incremental)":
+      for K in 2 .. 8:
+        for N in 5 .. 10:  # Small N so likely to have duplicates
+          10_000.times:
+            let col = !genStringNum(2, N)
+            let r = has_MAS(col, K)
+
   benchmarkMany "(C=2) has_MAS":
     let s = genStringNum(2, rand(1 .. 500))
     let col = !s
     let r = col.has_MAS(rand(2 .. 30))
 
-  benchmarkMany "(C=2) not":
-    let r = not (!genStringNum(2, rand(500))).data
-  benchmarkMany "(C=2) and":
-    let size = rand(500)
-    let r = (!genStringNum(2, size)).data and (!genStringNum(2, size)).data
-  benchmarkMany "(C=2) or":
-    let size = rand(500)
-    let r = (!genStringNum(2, size)).data or (!genStringNum(2, size)).data
+  test "(C=2) resize (to 0)":
+    var col = !genStringNum(2, rand(10 .. 30))
+    col.resize(0)
+    require(col.N == 0)
+    require($col == "")
+
+  testMany "(C=2) resize (down)":
+    let s = genStringNum(2, rand(100 .. 500))
+    var col = !s
+    let newSize = rand(50)
+    let expected = ($col)[0 ..< newSize]
+    col.resize(newSize)
+    require(col.N == newSize)
+    let actual = $col
+    require(expected == actual)
+
+  testMany "(C=2) resize (up)":
+    let initSize = rand(250)
+    let s = genStringNum(2, initSize)
+    var col = !s
+    let newSize = rand(300 .. 500)
+    let expected = $col
+    col.resize(newSize)
+    require(col.N == newSize)
+    require(($col).len == newSize)
+    let actual = ($col)[0 ..< initSize]
+    require(expected == actual)
+    let zeros = ($col)[initSize ..< ^0]
+    require(zeros.len == newSize - initSize)
+    for c in zeros:
+      require(c == '0')
 
   discard  # Run once after each test

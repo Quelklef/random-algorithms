@@ -4,8 +4,9 @@ import hashes
 import random
 import sugar
 import sequtils
+import hashes
 
-from misc import rand_u64, zipWith
+from misc import rand_u64, times
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
@@ -104,6 +105,34 @@ func shiftRightImpl(col: var TwoColoring, n: range[1 .. 63], overflow: uint64, i
   col.data[i] = (col.data[i] shl n) or overflow
   col.shiftRightImpl(n, recurOverflow, i + 1)
 
-func `>>=`*(col: var TwoColoring, n: range[0 .. 64]) =
+func shiftLeftImpl(col: var TwoColoring, n: range[1 .. 63], overflow: uint64, i: int) =
+  if i < 0:
+    return
+  let recurOverflow = col.data[i] shl (64 - n)
+  col.data[i] = (col.data[i] shr n) or overflow
+  col.shiftLeftImpl(n, recurOverflow, i - 1)
+
+func `>>=`*(col: var TwoColoring, n: range[1 .. 63]) =
   ## In-place shift right
   col.shiftRightImpl(n, 0, 0)
+
+func `<<=`*(col: var TwoColoring, n: range[1 .. 63]) =
+  ## In-place shift left
+  col.shiftLeftImpl(n, 0, col.data.len - 1)
+
+func hash*(col: TwoColoring): Hash =
+  return !$(0 !& hash(col.N) !& hash(col.data))
+
+func resize*(col: var TwoColoring, size: Natural) =
+  if col.N > size:
+    let uiDropCount = (col.N - size) div 64
+    let zeroCount = (col.N - size) mod 64
+    uiDropCount.times:
+      col.data.del(col.data.len - 1)
+    if col.data.len > 0:
+      col.data[^1] = col.data[^1] and (2'u64^(64 - zeroCount) - 1'u64)
+  elif col.N < size:
+    let uiAddCount = ceildiv(size - col.N, 64)
+    uiAddCount.times:
+      col.data.add(0'u64)
+  col.N = size

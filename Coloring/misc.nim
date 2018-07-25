@@ -58,11 +58,3 @@ func replaceMany*(s: string, repl: Table[string, string]): string =
 when isMainModule:
   assert("cool wow nice" == "nice cool wow".replaceMany({"nice": "cool", "cool": "wow", "wow": "nice"}.toTable))
   assert("abc" == "123".replaceMany({"1": "a", "2": "b", "3": "c"}.toTable))
-
-# -- #
-
-func zipWith*[T](f: proc(a, b: T): T, s0, s1: seq[T]): seq[T] =
-  let resLen = min(s0.len, s1.len)
-  result = newSeq[T](resLen)
-  for i in 0 ..< resLen:
-    result[i] = f(s0[i], s1[i])
