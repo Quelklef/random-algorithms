@@ -95,7 +95,7 @@ proc reportTrial(i, trialNumber: int, v: string) =
 
 let rule      = "+" & ("-" * blockWidth & "+") * threadCount & "\n"
 let dashes    = "+" & "-" * (tableWidth - 2) & "+" & "\n"
-let title     = "|" & ("Running trials for C = $# K = $#" % [$C, $K]).center(tableWidth- 2) & "|" & "\n"
+let title     = "|" & ("Running trials for C = $# K = $#. Press enter to quit." % [$C, $K]).center(tableWidth- 2) & "|" & "\n"
 let blankRow  = "|" & (" " * blockWidth & "|") * threadCount & "\n"
 stdout.writeShifted(dashes)
 stdout.writeShifted(title)
@@ -141,6 +141,11 @@ proc doTrials(i: int) {.thread.} =
 proc main() =
   for i in 0 ..< threadCount:
     threads[i].createThread(doTrials, i)
-  joinThreads(threads)
+
+  var quitThread: Thread[void]
+  quitThread.createThread do:
+    discard readLine(stdin)
+
+  joinThread(quitThread)
 
 main()
