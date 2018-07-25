@@ -78,7 +78,7 @@ template export_Coloring_Coloring2_bool(function: untyped): untyped =
   func `function`*[C](col: Coloring[C], mask: Coloring[2]): bool =
     function(col.data, mask.data)
 
-export_Coloring_Coloring2_bool(homogenous)
+export_Coloring_Coloring2_bool(homoegenous)
 
 
 iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =
