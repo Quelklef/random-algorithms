@@ -12,11 +12,11 @@ iterator skip*[T](a, step: T, n: int): T =
 
 when defined(provisional):
   func has_MAS*[C](coloring: Coloring[C], K: int): bool =
+    ## Find monochromatic arithmetic subseq of size K
+    # Iterate over step sizes, which is the distance between each item in the MAS
     when compileOption("rangeChecks"):
       if K <= 1:
         raise ValueError.newException("K must be >= 2")
-    ## Find monochromatic arithmetic subseq of size K
-    # Iterate over step sizes, which is the distance between each item in the MAS
     for stepSize in 1 .. (coloring.N - 1) div (K - 1):
       var mask = initColoring(2, coloring.N)
       for i in skip(0, stepSize, K):
@@ -30,6 +30,9 @@ else:
   func has_MAS*[C](coloring: Coloring[C], K: int): bool =
     ## Find monochromatic arithmetic subseq of size K
     # Iterate over step sizes, which is the distance between each item in the MAS
+    when compileOption("rangeChecks"):
+      if K <= 1:
+        raise ValueError.newException("K must be >= 2")
     for stepSize in 1 .. (coloring.N - 1) div (K - 1):
       for startLoc in 0 .. coloring.N - (K - 1) * stepSize - 1:
         block skipping:
