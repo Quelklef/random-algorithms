@@ -25,7 +25,7 @@ func has_MAS_correct*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
   return false
 
 when defined(provisional):
-  func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high], known: Natural = 0): bool =
+  func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high], known: Natural): bool =
     ## Find monochromatic arithmetic subseq of size K
     ## If `known` is given, assumes that there exists no MAS in the first `known` colors
     for stepSize in 1 .. (coloring.N - 1) div (K - 1):
@@ -39,19 +39,33 @@ when defined(provisional):
         mask <<= 1
     return false
 
+  func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
+    ## Find monochromatic arithmetic subseq of size K
+    ## If `known` is given, assumes that there exists no MAS in the first `known` colors
+    for stepSize in 1 .. (coloring.N - 1) div (K - 1):
+      var mask = initColoring(2, coloring.N)
+      for i in skip(coloring.N - 1, -stepSize, K):
+        mask[i] = 1
+
+      (coloring.N - (K - 1) * stepSize).times:
+        if coloring.homogenous(mask):
+          return true
+        mask <<= 1
+    return false
+
   type ColoringMagic[C: static[int]] = ref object
     known: bool
     hasMAS: bool
     branches: array[C, ColoringMagic[C]]
 
-  func initColoringMagic[C](): ColoringMagic[C] =
+  func newColoringMagic[C](): ColoringMagic[C] =
     new(result)
 
   func know[C](cm: ColoringMagic[C], x: Coloring[C], hasMAS: bool) =
     var cm = cm
     for color in x:
       if cm.branches[color].isNil:
-        cm.branches[color] = initColoringMagic[C]()
+        cm.branches[color] = newColoringMagic[C]()
       cm = cm.branches[color]
     cm.known = true
     cm.hasMAS = hasMAS
@@ -74,19 +88,19 @@ when defined(provisional):
 
   # knownValues[K][Coloring] = has_MAS
   # TODO: Support C != 2  (how??)
-  var knownHasMAS = newTable[int, ColoringMagic[2]]()
-
+  # TODO: Support multiple Ks
+  #       Current implementation assumes one K is only ever used
+  var cm = newColoringMagic[2]()
   proc has_MAS*[C: static[int]](coloring: Coloring[C], K: int): bool =
     static: assert C == 2
 
-    if K notin knownHasMAS:
-      knownHasMAS[K] = initColoringMagic[2]()
-    let cm = knownHasMAS[K]
-
     let (pathLen, found, hasMAS) = cm.lookup(coloring)
-    if found and hasMAS:
-      return true
-    result = has_MAS_pure(coloring, K, pathLen)
+    if found:
+      if hasMAS:
+        return true
+      result = has_MAS_pure(coloring, K, pathLen)
+    else:
+      result = has_MAS_pure(coloring, K)
 
     cm.know(coloring, result)
 
