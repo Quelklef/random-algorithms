@@ -74,7 +74,7 @@ proc main*() =
 
 var prob: float = 0.0
 
-proc probTuran*(p: float): tuple[e: int, shuffles: int] =
+proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   var g: Graph
   var e: int
 
@@ -87,7 +87,7 @@ proc probTuran*(p: float): tuple[e: int, shuffles: int] =
     while float(iSet(g)) < turanNum:
       numS += 1
       shuffle(g)
-    return (e: e, shuffles: numS)
+    return (diff: float(iSet(g)) - turanNum, shuffles: numS)
 
 proc trials*(w: int) {.thread.} =
   if prob <= 1:
@@ -99,8 +99,8 @@ proc trials*(w: int) {.thread.} =
 
     try:
       for _ in 0 ..< numTrials:
-        let (e, s) = probTuran(p)
-        file.writeRow(p, s)
+        let (d, s) = probTuran(p)
+        file.writeRow(p, s, d)
     finally:
       close(file)
     trials(w)
