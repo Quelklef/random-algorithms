@@ -56,6 +56,19 @@ func writeRow*(file: File, vals: varargs[string, `$`]) =
             return s)
 
             .join(","))
+#[
+proc concatFile*(fileName: string, files: seq[string]): void =
+  var file = open(fileName, mode = fmAppend)
+  var f: File
+  for name in files:
+    for line in lines name:
+      file.writeRow(line)
+]#
+
+proc concatFile*(fileName: string, files: seq[string]): void =
+  var file = open(fileName, mode = fmAppend)
+  for name in files:
+    file.write(readFile(name))
 
 when isMainModule:
     let f = open("test.txt", fmAppend)
