@@ -132,11 +132,9 @@ suite "Testing twoColoring":
           require(has_MAS(col, K) == expected)
 
   benchmark "(C=2) has_MAS (incremental)":
-    #for K in 2 .. 8:
-    block:
-      let K = 4
+    for K in 2 .. 8:
       for N in 2 .. 50:
-        1_000_000.times:
+        200_000.times:
           let col = !genStringNum(2, N)
           let r = has_MAS(col, K)
 

@@ -90,9 +90,13 @@ when defined(provisional):
   # TODO: Support C != 2  (how??)
   # TODO: Support multiple Ks
   #       Current implementation assumes one K is only ever used
-  var cm = newColoringMagic[2]()
+  var cms: seq[ColoringMagic[2]] = @[]
   proc has_MAS*[C: static[int]](coloring: Coloring[C], K: int): bool =
     static: assert C == 2
+
+    while K >= cms.len:
+      cms.add(newColoringMagic[2]())
+    let cm = cms[K]
 
     let (pathLen, found, hasMAS) = cm.lookup(coloring)
     if found:
