@@ -139,10 +139,10 @@ proc reportTrial(i, trialNumber: int, duration: float, flips: int) =
   ])
   stdout.flushFile
 
-let rule      = "├" & ("─" * blockWidth & "┤") * threadCount & "\n"
+let rule      = "├" & ("─" * blockWidth & "┼") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
 let rule2     = "├" & ("─" * blockWidth & "┬") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
 let dashesTop = "┌" & "─" * (tableWidth - 2) & "┐" & "\n"
-let dashesBot = "└" & "─" * (tableWidth - 2) & "┘" & "\n"
+let dashesBot = "└" & ("─" * blockWidth & "┴") * (threadCount - 1) & "─" * blockWidth & "┘" & "\n"
 let title     = "│\e[1m" & ("Running trials for C = $# K = $#. Press enter to quit." % [$C, $K]).center(tableWidth - 2) & "\e[0m\e[2m│" & "\n"
 let blankRow  = "│" & (" " * blockWidth & "│") * threadCount & "\n"
 stdout.write("\e[2m")
