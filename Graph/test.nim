@@ -5,4 +5,4 @@ import Turan
 
 random.randomize()
 
-probTuran(10, 0.1)
+main()
