@@ -34,8 +34,8 @@ else
   lastN="$(($finishedCount + 1))"
 fi
 
-nim c -d:reckless -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN
-#nohup nim c -d:reckless -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN > /dev/null &
+nim c -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN
+#nohup nim c -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN > /dev/null &
 
 #while [ 1 ]; do
 #  [ -z "$(ls)" ] || wc -l *

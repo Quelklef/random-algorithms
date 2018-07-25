@@ -21,8 +21,6 @@ trials: Number of desired trials for each datapoint
 N: The N to start at
 ]#
 
-when not defined(reckless):
-  echo("INFO: Not running with -d:reckless.")
 when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
   discard readLine(stdin)

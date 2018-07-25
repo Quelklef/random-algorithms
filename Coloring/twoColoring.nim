@@ -61,13 +61,13 @@ func `{}=`(col: var TwoColoring, i: int, val: range[0 .. 1]) =
     col.data[i div 64] = col.data[i div 64] and not (1'u64 shl (i mod 64))
 
 func `[]`*(col: TwoColoring, i: int): range[0 .. 1] =
-  when not defined(reckless):
+  when compileOption("boundChecks"):
     if i >= col.N:
       raise newException(IndexError, "Index $# out of bounds" % $i)
   return col{i}
 
 func `[]=`*(col: var TwoColoring, i: int, val: range[0 .. 1]) =
-  when not defined(reckless):
+  when compileOption("boundChecks"):
     if i >= col.N:
       raise newException(IndexError, "Index $# out of bounds" % $i)
   col{i} = val
