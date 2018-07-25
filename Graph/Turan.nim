@@ -2,8 +2,19 @@ import node
 import graph
 import random
 import io
+import math
 
 random.randomize()
+
+let outFile = open("graphdata.txt", fmAppend)
+
+let tabular = initTabular(
+    ["Vertices", "Edges", "Shuffles"],
+    [ 3        ,  2     , 10        ],
+)
+proc report(values: varargs[string, `$`]) =
+  echo tabular.row(values)
+  outFile.writeRow(values)
 
 proc turanDisplay*(n: int, e: int = -1): void =
   var edges = e
@@ -29,6 +40,41 @@ proc turanDisplay*(n: int, e: int = -1): void =
   echo "Shuffled ", count, " times"
   display(g)
 
+proc zeroSeq(n: int): seq[int] =
+  for i in 0 ..< n:
+    result.add(0)
+
+iterator increment(start: float, stop: float, inc: float): float =
+  var i = start
+  while i < stop:
+    yield i
+    i += inc
+
+let numTrials: int = 1000
+proc probTuran*(n: int, inc: float): void =
+  echo tabular.title()
+
+  var sums: seq[int] = zeroSeq(int(ceil(1/inc)) + 1) # + 1 to deal with weird float addition
+
+  var g: Graph
+  var e: int
+  var index = 0
+  for p in increment(0, 1, inc):
+    #echo n, " ", e, " ", p
+    for i in 0 ..< numTrials:
+      g = initProbGraph(n, p)
+      shuffle(g)
+      e = numE(g)
+      var turanNum = float(n)/(2*e/n + 1)
+      var numS = 1
+      while float(iSet(g)) < turanNum:
+        numS += 1
+        shuffle(g)
+      echo tabular.row(n, e, numS) #replace with report if you want data saved to file
+      sums[index] += numS
+    index += 1
+  for i, n in sums:
+    echo "p: ",float(i) * inc, ", average shuffles: " ,n / numTrials #I'm assuming well behaved data but perhaps median would be more appropriate, distribution needs to be looked at
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
 proc turanAll*(n:int, e:int): seq[int] =
@@ -59,16 +105,7 @@ proc turan*(n: int, e: int = -1): int =
     result += 1
     shuffle(g)
 
-let outFile = open("graphdata.txt", fmAppend)
-
-let tabular = initTabular(
-    ["Vertices", "Edges", "Shuffles"],
-    [ 3        ,  2     , 10        ],
-)
-proc report(values: varargs[string, `$`]) =
-  echo tabular.row(values)
-  outFile.writeRow(values)
-
+#[
 echo tabular.title()
 # TODO: for some reason n =1 doesn't work, shouldn't matter tho
 for n in 1 .. 10:
@@ -78,3 +115,4 @@ for n in 1 .. 10:
       report(n, e, o)
 
 close(outFile)
+]#
