@@ -86,15 +86,23 @@ proc randomize*(col: var TwoColoring): void =
 func `and`*(col0, col1: TwoColoring): TwoColoring =
   when not defined(reckless):
     assert col0.N == col1.N
-  return TwoColoring(N: col0.N, data: zipWith((a: uint64, b: uint64) => a and b, col0.data, col1.data))
+  var resultVals = newSeq[uint64](col0.N)
+  for i in 0 ..< resultVals.len:
+    resultVals[i] = col0.data[i] and col1.data[i]
 
 func `or`*(col0, col1: TwoColoring): TwoColoring =
   when not defined(reckless):
     assert col0.N == col1.N
-  return TwoColoring(N: col0.N, data: zipWith((a: uint64, b: uint64) => a or b, col0.data, col1.data))
+  var resultVals = newSeq[uint64](col0.N)
+  for i in 0 ..< resultVals.len:
+    resultVals[i] = col0.data[i] or col1.data[i]
+  return TwoColoring(N: col0.N, data: resultVals)
 
 func `not`*(col: TwoColoring): TwoColoring =
-  return TwoColoring(N: col.N, data: col.data.map((u: uint64) => not u))
+  var resultVals = newSeq[uint64](col.data.len)
+  for i in 0 ..< resultVals.len:
+    resultVals[i] = not resultVals[i]
+  return TwoColoring(N: col.N, data: resultVals)
 
 func allZeros(col: TwoColoring): bool =
   return col.data.all((u: uint64) => u == 0)
