@@ -83,40 +83,16 @@ proc randomize*(col: var TwoColoring): void =
   for i in 0 ..< col.data.len:
     col.data[i] = rand_u64()
 
-func `and`*(col0, col1: TwoColoring): TwoColoring =
-  when compileOption("rangeChecks"):
-    if col0.N != col1.N:
-      raise ValueError.newException("The two colorings must be the same size.")
-  var resultVals = newSeq[uint64](col0.data.len)
-  for i in 0 ..< resultVals.len:
-    resultVals[i] = col0.data[i] and col1.data[i]
-  return TwoColoring(N: col0.N, data: resultVals)
-
-func `or`*(col0, col1: TwoColoring): TwoColoring =
-  when compileOption("rangeChecks"):
-    if col0.N != col1.N:
-      raise ValueError.newException("The two colorings must be the same size.")
-  var resultVals = newSeq[uint64](col0.data.len)
-  for i in 0 ..< resultVals.len:
-    resultVals[i] = col0.data[i] or col1.data[i]
-  return TwoColoring(N: col0.N, data: resultVals)
-
-func `not`*(col: TwoColoring): TwoColoring =
-  var resultVals = newSeq[uint64](col.data.len)
-  for i in 0 ..< resultVals.len:
-    resultVals[i] = not col.data[i]
-  return TwoColoring(N: col.N, data: resultVals)
-
-func allZeros(col: TwoColoring): bool =
-  return col.data.all((u: uint64) => u == 0)
-
-func allOnes(col: TwoColoring): bool =
-  return col.data.all((u: uint64) => u == high(uint64))
-
 func homogenous*(col, mask: TwoColoring): bool =
   ## Are all the colors specified by the mask the
   ## same coloring?
-  return (col and mask).allZeros or (col or not mask).allOnes
+  when compileOption("checks"):
+    if col.N != mask.N:
+      raise ValueError.newException("Coloring and mask must be the same size.")
+  for i in 0 ..< col.data.len:
+    if not ((col.data[i] and mask.data[i]) == 0 or ((col.data[i] or not mask.data[i]) == uint64.high)):
+      return false
+  return true
 
 func shiftRightImpl(col: var TwoColoring, n: range[1 .. 63], overflow: uint64, i: int) =
   # n cant be 0 or 64 because for some reason `(v: uint64) shl/shr 64` is a noop
