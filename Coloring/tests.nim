@@ -96,6 +96,7 @@ suite "Testing twoColoring":
     require homogenous(!"11111", !"11111")
     require homogenous(!"00100", !"11011")
     require homogenous(!"10101010101", !"10101010101")
+    require(not homogenous(!"00001111", !"01111100"))
 
   benchmarkMany "(C=2) homogenous":
     let size = rand(500)

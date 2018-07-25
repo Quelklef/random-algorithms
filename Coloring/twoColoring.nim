@@ -84,16 +84,19 @@ proc randomize*(col: var TwoColoring): void =
     col.data[i] = rand_u64()
 
 func `and`*(col0, col1: TwoColoring): TwoColoring =
-  when not defined(reckless):
-    assert col0.N == col1.N
-  var resultVals = newSeq[uint64](col0.N)
+  when compileOption("rangeChecks"):
+    if col0.N != col1.N:
+      raise ValueError.newException("The two colorings must be the same size.")
+  var resultVals = newSeq[uint64](col0.data.len)
   for i in 0 ..< resultVals.len:
     resultVals[i] = col0.data[i] and col1.data[i]
+  return TwoColoring(N: col0.N, data: resultVals)
 
 func `or`*(col0, col1: TwoColoring): TwoColoring =
-  when not defined(reckless):
-    assert col0.N == col1.N
-  var resultVals = newSeq[uint64](col0.N)
+  when compileOption("rangeChecks"):
+    if col0.N != col1.N:
+      raise ValueError.newException("The two colorings must be the same size.")
+  var resultVals = newSeq[uint64](col0.data.len)
   for i in 0 ..< resultVals.len:
     resultVals[i] = col0.data[i] or col1.data[i]
   return TwoColoring(N: col0.N, data: resultVals)
@@ -101,7 +104,7 @@ func `or`*(col0, col1: TwoColoring): TwoColoring =
 func `not`*(col: TwoColoring): TwoColoring =
   var resultVals = newSeq[uint64](col.data.len)
   for i in 0 ..< resultVals.len:
-    resultVals[i] = not resultVals[i]
+    resultVals[i] = not col.data[i]
   return TwoColoring(N: col.N, data: resultVals)
 
 func allZeros(col: TwoColoring): bool =
