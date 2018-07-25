@@ -3,10 +3,11 @@ import graph
 import random
 import io
 import math
+import locks
+import strutils
+import os
 
 random.randomize()
-
-let outFile = open("graphdata.txt", fmAppend)
 
 let tabular = initTabular(
     ["Vertices", "Edges", "Shuffles"],
@@ -14,7 +15,6 @@ let tabular = initTabular(
 )
 proc report(values: varargs[string, `$`]) =
   echo tabular.row(values)
-  outFile.writeRow(values)
 
 proc turanDisplay*(n: int, e: int = -1): void =
   var edges = e
@@ -50,31 +50,60 @@ iterator increment(start: float, stop: float, inc: float): float =
     yield i
     i += inc
 
-let numTrials: int = 1000
-proc probTuran*(n: int, inc: float): void =
-  echo tabular.title()
+###TESTING THINGS
+let n = 10
+let inc = 0.05
+let numTrials: int = 10000
+const numThreads = 12
 
-  var sums: seq[int] = zeroSeq(int(ceil(1/inc)) + 1) # + 1 to deal with weird float addition
+var threads: array[numThreads, Thread[int]]
+proc trials*(w: int) {.thread.}
+proc main*() =
+  for i in 0 ..< numThreads:
+    threads[i].createThread(trials, i)
+  joinThreads(threads)
 
+  var names: seq[string] = @[]
+  var p = 0.0
+  while p <= 1:
+    names.add("Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt")
+    p = round(p + inc, 2)
+  concatFile("Turan_" & intToStr(n) & ".txt", names)
+  for name in names:
+    removeFile(name)
+
+var prob: float = 0.0
+
+proc probTuran*(p: float): tuple[e: int, shuffles: int] =
   var g: Graph
   var e: int
-  var index = 0
-  for p in increment(0, 1, inc):
-    #echo n, " ", e, " ", p
-    for i in 0 ..< numTrials:
-      g = initProbGraph(n, p)
+
+  for i in 0 ..< numTrials:
+    g = initProbGraph(n, p)
+    shuffle(g)
+    e = numE(g)
+    var turanNum = float(n)/(2*e/n + 1)
+    var numS = 1
+    while float(iSet(g)) < turanNum:
+      numS += 1
       shuffle(g)
-      e = numE(g)
-      var turanNum = float(n)/(2*e/n + 1)
-      var numS = 1
-      while float(iSet(g)) < turanNum:
-        numS += 1
-        shuffle(g)
-      echo tabular.row(n, e, numS) #replace with report if you want data saved to file
-      sums[index] += numS
-    index += 1
-  for i, n in sums:
-    echo "p: ",float(i) * inc, ", average shuffles: " ,n / numTrials #I'm assuming well behaved data but perhaps median would be more appropriate, distribution needs to be looked at
+    return (e: e, shuffles: numS)
+
+proc trials*(w: int) {.thread.} =
+  if prob <= 1:
+    var p = prob
+    prob = round(prob + inc, 2)
+
+    let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
+    let file = open(fileName, mode = fmAppend)
+
+    try:
+      for _ in 0 ..< numTrials:
+        let (e, s) = probTuran(p)
+        file.writeRow(p, s)
+    finally:
+      close(file)
+    trials(w)
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
 proc turanAll*(n:int, e:int): seq[int] =
@@ -113,6 +142,5 @@ for n in 1 .. 10:
     #report(n, e, turan(n, e))
     for o in turanAll(n, e):
       report(n, e, o)
-
 close(outFile)
 ]#
