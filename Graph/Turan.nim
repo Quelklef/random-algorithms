@@ -147,8 +147,9 @@ proc trials*(w: int) {.thread.} =
     #setForegroundColor(fgGreen)
     trials(w)
   else:
-    setForegroundColor(fgMagenta)
-    echo "Thread ", w, " is now idle"
+    withLock(echoLock):
+      setForegroundColor(fgMagenta)
+      echo "Thread ", w, " is now idle"
 
 when isMainModule:
   main()
