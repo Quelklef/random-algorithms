@@ -10,6 +10,7 @@ import sequtils
 import misc
 import times
 import terminal
+import osproc
 
 random.randomize()
 
@@ -60,7 +61,7 @@ let n = if (paramCount() >= 1): paramStr(1).parseInt else: 20
 let inc = if (paramCount() >= 2): paramStr(2).parseFloat else: 0.1
 let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
 let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
-const numThreads = 12
+const numThreads = countProcessors()
 var prob: float = 0.0
 var echoLock: Lock
 var fileLock: Lock
@@ -102,7 +103,7 @@ proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   return (diff: float(iSet(g)) - turanNum, shuffles: numS)
 
 proc trials*(w: int) {.thread.} =
-  if prob <= 1:
+  if prob < 1:
     var saveFile: string
     if oneFile:
       saveFile = "Turan_X.txt"
@@ -114,7 +115,7 @@ proc trials*(w: int) {.thread.} =
       p = prob
       prob = round(prob + inc, 2)
       setForegroundColor(fgCyan)
-      echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
+      echo "Thread " & intToStr(w).align(2,'0') & " starting p = " & p.formatFloat(ffDecimal, 2)
 
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
@@ -149,7 +150,7 @@ proc trials*(w: int) {.thread.} =
   else:
     withLock(echoLock):
       setForegroundColor(fgMagenta)
-      echo "Thread ", w, " is now idle"
+      echo "Thread " & intToStr(w).align(2,'0') & " is now idle"
 
 when isMainModule:
   main()
