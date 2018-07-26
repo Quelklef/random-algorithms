@@ -24,35 +24,27 @@ func has_MAS_correct*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
         return true
   return false
 
-when defined(provisional):
-  func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high], known: Natural): bool =
-    ## Find monochromatic arithmetic subseq of size K
-    ## If `known` is given, assumes that there exists no MAS in the first `known` colors
-    for stepSize in 1 .. (coloring.N - 1) div (K - 1):
-      var mask = initColoring(2, coloring.N)
-      for i in skip(coloring.N - 1, -stepSize, K):
-        mask[i] = 1
+template has_MAS_pure_impl(X: untyped): untyped {.dirty.} =
+  ## Find monochromatic arithmetic subseq of size K
+  ## If `known` is given, assumes that there exists no MAS in the first `known` colors
+  for stepSize in 1 .. (coloring.N - 1) div (K - 1):
+    var mask = initColoring(2, coloring.N)
+    for i in skip(coloring.N - 1, -stepSize, K):
+      mask[i] = 1
 
-      min(coloring.N - known, coloring.N - (K - 1) * stepSize).times:
-        if coloring.homogenous(mask):
-          return true
-        mask <<= 1
-    return false
+    X.times:
+      if coloring.homogenous(mask):
+        return true
+      mask <<= 1
+  return false
 
-  func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
-    ## Find monochromatic arithmetic subseq of size K
-    ## If `known` is given, assumes that there exists no MAS in the first `known` colors
-    for stepSize in 1 .. (coloring.N - 1) div (K - 1):
-      var mask = initColoring(2, coloring.N)
-      for i in skip(coloring.N - 1, -stepSize, K):
-        mask[i] = 1
+func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high], known: Natural): bool =
+  has_MAS_pure_impl(min(coloring.N - known, coloring.N - (K - 1) * stepSize))
 
-      (coloring.N - (K - 1) * stepSize).times:
-        if coloring.homogenous(mask):
-          return true
-        mask <<= 1
-    return false
+func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
+  has_MAS_pure_impl(coloring.N - (K - 1) * stepSize)
 
+when defined(twosided):
   type ColoringMagic[C: static[int]] = ref object
     known: bool
     hasMAS: bool

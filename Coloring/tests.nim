@@ -42,7 +42,7 @@ template testMany(name: string, body: untyped): untyped =
 
 template benchmarkMany(name: string, body: untyped): untyped =
   benchmark name:
-    10_000.times:
+    1000.times:
       body
 
 template benchmarkTest(name: string, body: untyped): untyped =
@@ -133,8 +133,8 @@ suite "Testing twoColoring":
 
   benchmark "(C=2) has_MAS (incremental)":
     for K in 2 .. 8:
-      for N in 2 .. 50:
-        200_000.times:
+      for N in 2 .. 30:
+        1000.times:
           let col = !genStringNum(2, N)
           let r = has_MAS(col, K)
 
