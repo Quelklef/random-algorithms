@@ -107,6 +107,13 @@ template calcX(i: int): int = 1 + (blockWidth + 1) * i
 let trialCountStrLen = trialCount.`$`.len
 proc trialHeader(i, trialNumber: int) =
   let x = calcX(i)
+  # We need to clear the block in the edge case that a previous trial had
+  # a wider header, for instance if the program was run with a goal of 1000
+  # trials and then rerun later with a goal of 50.
+  # The header would be '1000 / 50 trials (500%)' which is larger than we
+  # need or want for `XX / 50 trials (XXX%)`.
+  stdout.gotoShifted(x, 5)
+  stdout.write(blankBlock)
   stdout.gotoShifted(x + 1, 5)
   stdout.write("$# / $# trials ($#%)" % [
     trialNumber.`$`.align(trialCountStrLen),
