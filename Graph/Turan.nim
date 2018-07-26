@@ -75,6 +75,7 @@ else:
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
 proc main*() =
+  echo "Starting on N = ", n
   for i in 0 ..< numThreads:
     threads[i].createThread(trials, i)
   joinThreads(threads)
