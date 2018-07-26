@@ -6,6 +6,8 @@ import math
 import locks
 import strutils
 import os
+import sequtils
+import misc
 
 random.randomize()
 
@@ -51,7 +53,7 @@ iterator increment(start: float, stop: float, inc: float): float =
     i += inc
 
 ###TESTING THINGS
-let n = 10
+let n = 20
 let inc = 0.05
 let numTrials: int = 10000
 const numThreads = 12
@@ -68,9 +70,6 @@ proc main*() =
   while p <= 1:
     names.add("Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt")
     p = round(p + inc, 2)
-  concatFile("Turan_" & intToStr(n) & ".txt", names)
-  for name in names:
-    removeFile(name)
 
 var prob: float = 0.0
 
@@ -101,8 +100,13 @@ proc trials*(w: int) {.thread.} =
       for _ in 0 ..< numTrials:
         let (d, s) = probTuran(p)
         file.writeRow(p, s, d)
+        echo zip([$p, $s, $(round(d, 1))], [4, 3, 4]) #implements tabular's display method without memory accessing problems
+                   .mapIt(align(it[0], it[1]))
+                   .joinSurround(" | ")
     finally:
       close(file)
+    concatFile("Turan_" & intToStr(n) & ".txt", fileName)
+    removeFile(fileName)
     trials(w)
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
