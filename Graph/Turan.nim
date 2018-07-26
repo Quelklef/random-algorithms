@@ -130,8 +130,6 @@ proc trials*(w: int) {.thread.} =
 
 when isMainModule:
   main()
-  echo "\nGo ahead and smash that enter button to exit:"
-  discard readLine(stdin)
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
 proc turanAll*(n:int, e:int): seq[int] =
