@@ -118,7 +118,10 @@ proc trials*(w: int) {.thread.} =
       startTime = cpuTime()
       for _ in 0 ..< numTrials:
         let (d, s) = probTuran(p)
-        file.writeRow(p, s, d)
+        if oneFile:
+          file.writeRow(n, p, s, d)
+        else:
+          file.writeRow(p, s, d)
         #[ #per trial output
         echo zip([$p, $s, $(round(d, 1))], [4, 3, 4]) #implements tabular's display method without memory accessing problems
                    .mapIt(align(it[0], it[1]))
