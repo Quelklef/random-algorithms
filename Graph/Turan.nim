@@ -62,8 +62,10 @@ let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
 let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
 const numThreads = 12
 var prob: float = 0.0
-var lock: Lock
-initLock(lock)
+var echoLock: Lock
+var fileLock: Lock
+initLock(echoLock)
+initLock(fileLock)
 
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
@@ -107,12 +109,13 @@ proc trials*(w: int) {.thread.} =
     else:
       saveFile = "Turan_" & intToStr(n) & ".txt"
 
-    acquire(lock)
-    var p = prob
-    prob = round(prob + inc, 2)
-    setForegroundColor(fgCyan)
-    echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
-    release(lock)
+    var p: float
+    withLock(echoLock):
+      p = prob
+      prob = round(prob + inc, 2)
+      setForegroundColor(fgCyan)
+      echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
+
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
@@ -136,11 +139,11 @@ proc trials*(w: int) {.thread.} =
       discard readLine(stdin)
     finally:
       close(file)
-    acquire(lock)
-    concatFile(saveFile, fileName)
-    styledEcho(fgGreen, "p = " & p.formatFloat(ffDecimal, 2) & " done in " & round(cpuTime() - startTime, 2).formatFloat(ffDecimal, 2) & "s")
-    release(lock)
-    removeFile(fileName)
+    withLock(fileLock):
+      concatFile(saveFile, fileName)
+      removeFile(fileName)
+    withLock(echoLock):
+      styledEcho(fgGreen, "p = " & p.formatFloat(ffDecimal, 2) & " done in " & round(cpuTime() - startTime, 2).formatFloat(ffDecimal, 2) & "s")
     #setForegroundColor(fgGreen)
     trials(w)
   else:
