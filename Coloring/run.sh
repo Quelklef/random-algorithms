@@ -21,28 +21,4 @@ dirname="C_$(printf %05d $1)__K_$(printf %05d $2)"
 mkdir -p "$dirname"
 cd "$dirname"
 
-if [ -z "$(ls)" ]; then
-  lastN=1
-else
-  # Get list of files with line counts
-  # Exclude the last line (sums)
-  files="$(wc -l * | sed \$d)"
-  filesCount="$(echo $files | wc -l)"
-  # Get count of files that have the desired number of trials
-  finishedCount="$(echo $files | grep '^ *$trials' | wc -l)"
-  # The first N we want to work on is one after that
-  lastN="$(($finishedCount + 1))"
-fi
-
-nim c -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN
-#nohup nim c -d:release --threads:on -r ../../multiThread $1 $2 $3 $lastN > /dev/null &
-
-#while [ 1 ]; do
-#  [ -z "$(ls)" ] || wc -l *
-#  echo "Working on C=$1 K=$2 ($3 trials). Press any key to exit."
-#  read -t 3 -n 1
-#  if [ "$?" = 0 ]; then  # If user inputted
-#    pgrep multiThread | xargs kill -9
-#    exit
-#  fi
-#done
+nim c -d:release --threads:on -r ../../multiThread $1 $2 $3

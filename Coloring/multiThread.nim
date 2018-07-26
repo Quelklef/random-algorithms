@@ -18,7 +18,6 @@ from misc import `*`, times
 C: C
 K: K
 trials: Number of desired trials for each datapoint
-N: The N to start at
 ]#
 
 when not defined(release):
@@ -36,7 +35,7 @@ const threadCount = 8
 # -- #
 
 var threads: array[threadCount, Thread[int]]
-var nextN = paramStr(4).parseInt  # The next N we want to work on
+var nextN = K
 
 proc numLines(f: string): int =
   return f.readFile.string.countLines - 1
@@ -44,7 +43,7 @@ proc numLines(f: string): int =
 proc createFile(f: string) =
   close(open(f, mode = fmWrite))
 
-func timeFormat(t: float, size: int): string =
+func timeFormat(t: float): string =
   var rest = int(t * 1000)
 
   let hurs = rest div 3600000
@@ -70,7 +69,6 @@ func timeFormat(t: float, size: int): string =
 func reprInXChars(val: float, n: int, suffix: string): string =
   const prefixes = [
     (""  , 1.0                , ""),
-    ("da", 10.0               , ""),
     ("h" , 100.0              , "\e[36m"),
     ("k" , 1_000.0            , "\e[32m"),
     ("M" , 1_000_000.0        , "\e[35m"),
@@ -131,8 +129,7 @@ proc newN(i, N, existingTrials: int) =
     stdout.gotoShifted(x, topPad + i)
     stdout.write(blankBlock)
   stdout.flushFile
-proc reportTrial(i, trialNumber: int, duration: float, flips: int) =
-  trialHeader(i, trialNumber)
+proc displayTrial_raw(i: int, val: string) =
   let x = calcX(i)
   let curY = prevYs[i]
   let newY = (curY + 1) mod feedRowCount
@@ -140,11 +137,19 @@ proc reportTrial(i, trialNumber: int, duration: float, flips: int) =
   stdout.gotoShifted(x, newY + topPad)
   stdout.write(blankBlock)
   stdout.gotoShifted(x + 1, curY + topPad)
-  stdout.write("$# $#" % [
-    timeFormat(duration, 18),
+  stdout.write(val)
+  stdout.flushFile
+proc reportRecordedTrial(i: int, flips: int) =
+  displayTrial_raw(i, "$# $#" % [
+    " " * 17,
+    flips.float.reprInXChars(12, "f"),
+  ])
+proc reportTrial(i, trialNumber: int, duration: float, flips: int) =
+  trialHeader(i, trialNumber)
+  displayTrial_raw(i, "$# $#" % [
+    timeFormat(duration),
     flips.float.reprInXChars(12, "f")
   ])
-  stdout.flushFile
 
 let rule      = "├" & ("─" * blockWidth & "┼") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
 let rule2     = "├" & ("─" * blockWidth & "┬") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
@@ -175,11 +180,20 @@ proc doTrials(i: int) {.thread.} =
       createFile(fileName)
     let existingTrials = numLines(filename)
 
-    withLock(tLock):
-      newN(i, N, existingTrials)
+    block:
+      let file = open(filename, mode = fmRead)
+      defer: close(file)
+
+      withLock(tLock):
+        newN(i, N, existingTrials)
+        for line in file.lines:
+          reportRecordedTrial(i, line.string.parseInt)
 
     let file = open(filename, mode = fmAppend)
     defer: close(file)
+
+    if existingTrials >= trialCount:
+      continue
     for t in existingTrials ..< trialCount:
       let t0 = epochTime()
       let (flips, coloring) = find_noMAS_coloring(C, N, K)
