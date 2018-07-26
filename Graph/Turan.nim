@@ -62,6 +62,8 @@ let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
 let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
 const numThreads = 12
 var prob: float = 0.0
+var lock: Lock
+initLock(lock)
 
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
@@ -111,9 +113,10 @@ proc trials*(w: int) {.thread.} =
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
     var startTime: float
-
+    acquire(lock)
     setForegroundColor(fgCyan)
     echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
+    release(lock)
     try:
       startTime = cpuTime()
       for _ in 0 ..< numTrials:
@@ -127,13 +130,22 @@ proc trials*(w: int) {.thread.} =
                    .mapIt(align(it[0], it[1]))
                    .joinSurround(" | ")
                    ]#
+    except IOError:
+      setForegroundColor(fgRed)
+      echo "Error: Failed to open to file: Thread ", w, ", n ", n, ", p ", p
+      discard readLine(stdin)
     finally:
       close(file)
+    acquire(lock)
     concatFile(saveFile, fileName)
+    styledEcho(fgGreen, "p = " & p.formatFloat(ffDecimal, 2) & " done in " & round(cpuTime() - startTime, 2).formatFloat(ffDecimal, 2) & "s")
+    release(lock)
     removeFile(fileName)
     #setForegroundColor(fgGreen)
-    styledEcho(fgGreen, "p = " & p.formatFloat(ffDecimal, 2) & " done in " & round(cpuTime() - startTime, 2).formatFloat(ffDecimal, 2) & "s")
     trials(w)
+  else:
+    setForegroundColor(fgMagenta)
+    echo "Thread ", w, " is now idle"
 
 when isMainModule:
   main()
