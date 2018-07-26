@@ -107,16 +107,16 @@ proc trials*(w: int) {.thread.} =
     else:
       saveFile = "Turan_" & intToStr(n) & ".txt"
 
+    acquire(lock)
     var p = prob
     prob = round(prob + inc, 2)
+    setForegroundColor(fgCyan)
+    echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
+    release(lock)
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
     var startTime: float
-    acquire(lock)
-    setForegroundColor(fgCyan)
-    echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
-    release(lock)
     try:
       startTime = cpuTime()
       for _ in 0 ..< numTrials:
