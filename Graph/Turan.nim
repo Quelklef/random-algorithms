@@ -9,6 +9,7 @@ import os
 import sequtils
 import misc
 import times
+import terminal
 
 random.randomize()
 
@@ -54,40 +55,33 @@ iterator increment(start: float, stop: float, inc: float): float =
     i += inc
 
 ###TESTING THINGS
-var n = 20
-var inc = 0.1
-var numTrials = 1000
+#COMMAND LINE FILES: number of nodes, increment for p, number of trials per n per p, 1 or 0 (True or False) if all n's in one file or seperate
+let n = if (paramCount() >= 1): paramStr(1).parseInt else: 20
+let inc = if (paramCount() >= 2): paramStr(2).parseFloat else: 0.1
+let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
+let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
 const numThreads = 12
-
-case paramCount()
-of 1:
-  n = paramStr(1).parseInt
-of 2:
-  n = paramStr(1).parseInt
-  inc = paramStr(2).parseFloat
-of 3:
-  n = paramStr(1).parseInt
-  inc = paramStr(2).parseFloat
-  numTrials = paramStr(3).parseInt
-else:
-  echo "You seem to have messed up cmd line args, using default values: ", n, ", ", inc, ", ", numTrials
+var prob: float = 0.0
 
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
 proc main*() =
+  var saveFile: string
+  if oneFile:
+    saveFile = "Turan_X.txt"
+  else:
+    saveFile = "Turan_" & intToStr(n) & ".txt"
+
+  setForegroundColor(fgYellow)
   echo "Starting on N = ", n
   for i in 0 ..< numThreads:
     threads[i].createThread(trials, i)
   joinThreads(threads)
 
-  var names: seq[string] = @[]
-  var p = 0.0
-  while p <= 1:
-    names.add("Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt")
-    p = round(p + inc, 2)
-  echo "File saved as: ", "Turan_" & intToStr(n) & ".txt"
+  setForegroundColor(fgYellow)
+  echo "File saved as: ", saveFile
+  resetAttributes()
 
-var prob: float = 0.0
 
 proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   var g: Graph
@@ -105,6 +99,12 @@ proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
 
 proc trials*(w: int) {.thread.} =
   if prob <= 1:
+    var saveFile: string
+    if oneFile:
+      saveFile = "Turan_X.txt"
+    else:
+      saveFile = "Turan_" & intToStr(n) & ".txt"
+
     var p = prob
     prob = round(prob + inc, 2)
 
@@ -112,6 +112,8 @@ proc trials*(w: int) {.thread.} =
     let file = open(fileName, mode = fmAppend)
     var startTime: float
 
+    setForegroundColor(fgCyan)
+    echo "Thread " & intToStr(w) & " starting p = " & p.formatFloat(ffDecimal, 2)
     try:
       startTime = cpuTime()
       for _ in 0 ..< numTrials:
@@ -124,9 +126,10 @@ proc trials*(w: int) {.thread.} =
                    ]#
     finally:
       close(file)
-    concatFile("Turan_" & intToStr(n) & ".txt", fileName)
+    concatFile(saveFile, fileName)
     removeFile(fileName)
-    echo "p = ", p.formatFloat(ffDecimal, 2), " done by thread ", w, " in ", round(cpuTime() - startTime, 2), "s"
+    #setForegroundColor(fgGreen)
+    styledEcho(fgGreen, "p = " & p.formatFloat(ffDecimal, 2) & " done in " & round(cpuTime() - startTime, 2).formatFloat(ffDecimal, 2) & "s")
     trials(w)
 
 when isMainModule:
