@@ -1,1 +1,0 @@
-nim c --threads:on -d:release test
