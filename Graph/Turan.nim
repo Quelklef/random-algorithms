@@ -8,6 +8,7 @@ import strutils
 import os
 import sequtils
 import misc
+import times
 
 random.randomize()
 
@@ -53,9 +54,9 @@ iterator increment(start: float, stop: float, inc: float): float =
     i += inc
 
 ###TESTING THINGS
-let n = 20
-let inc = 0.05
-let numTrials: int = 10000
+let n = paramStr(1).parseInt
+let inc = paramStr(2).parseFloat
+let numTrials = paramStr(3).parseInt
 const numThreads = 12
 
 var threads: array[numThreads, Thread[int]]
@@ -70,6 +71,7 @@ proc main*() =
   while p <= 1:
     names.add("Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt")
     p = round(p + inc, 2)
+  echo "File saved as: ", "Turan_" & intToStr(n) & ".txt"
 
 var prob: float = 0.0
 
@@ -77,16 +79,15 @@ proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   var g: Graph
   var e: int
 
-  for i in 0 ..< numTrials:
-    g = initProbGraph(n, p)
+  g = initProbGraph(n, p)
+  shuffle(g)
+  e = numE(g)
+  var turanNum = float(n)/(2*e/n + 1)
+  var numS = 1
+  while float(iSet(g)) < turanNum:
+    numS += 1
     shuffle(g)
-    e = numE(g)
-    var turanNum = float(n)/(2*e/n + 1)
-    var numS = 1
-    while float(iSet(g)) < turanNum:
-      numS += 1
-      shuffle(g)
-    return (diff: float(iSet(g)) - turanNum, shuffles: numS)
+  return (diff: float(iSet(g)) - turanNum, shuffles: numS)
 
 proc trials*(w: int) {.thread.} =
   if prob <= 1:
@@ -95,19 +96,29 @@ proc trials*(w: int) {.thread.} =
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
+    var startTime: float
 
     try:
+      startTime = cpuTime()
       for _ in 0 ..< numTrials:
         let (d, s) = probTuran(p)
         file.writeRow(p, s, d)
+        #[ #per trial output
         echo zip([$p, $s, $(round(d, 1))], [4, 3, 4]) #implements tabular's display method without memory accessing problems
                    .mapIt(align(it[0], it[1]))
                    .joinSurround(" | ")
+                   ]#
     finally:
       close(file)
     concatFile("Turan_" & intToStr(n) & ".txt", fileName)
     removeFile(fileName)
+    echo "p = ", p.formatFloat(ffDecimal, 2), " done by thread ", w, " in ", round(cpuTime() - startTime, 2), "s"
     trials(w)
+
+when isMainModule:
+  main()
+  echo "\nGo ahead and smash that enter button to exit:"
+  discard readLine(stdin)
 
 #Finds numShuffles for all simple graphs that have n nodes and e edges
 proc turanAll*(n:int, e:int): seq[int] =
