@@ -54,10 +54,23 @@ iterator increment(start: float, stop: float, inc: float): float =
     i += inc
 
 ###TESTING THINGS
-let n = paramStr(1).parseInt
-let inc = paramStr(2).parseFloat
-let numTrials = paramStr(3).parseInt
+var n = 20
+var inc = 0.1
+var numTrials = 1000
 const numThreads = 12
+
+case paramCount()
+of 1:
+  n = paramStr(1).parseInt
+of 2:
+  n = paramStr(1).parseInt
+  inc = paramStr(2).parseFloat
+of 3:
+  n = paramStr(1).parseInt
+  inc = paramStr(2).parseFloat
+  numTrials = paramStr(3).parseInt
+else:
+  echo "You seem to have messed up cmd line args, using default values: ", n, ", ", inc, ", ", numTrials
 
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
