@@ -10,7 +10,6 @@ import sequtils
 import misc
 import times
 import terminal
-import osproc
 
 random.randomize()
 
@@ -61,7 +60,7 @@ let n = if (paramCount() >= 1): paramStr(1).parseInt else: 20
 let inc = if (paramCount() >= 2): paramStr(2).parseFloat else: 0.1
 let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
 let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
-const numThreads = countProcessors()
+const numThreads = 12
 var prob: float = 0.0
 var echoLock: Lock
 var fileLock: Lock
@@ -71,14 +70,13 @@ initLock(fileLock)
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
 proc main*() =
+
   var saveFile: string
   if oneFile:
     saveFile = "Turan_X.txt"
   else:
     saveFile = "Turan_" & intToStr(n) & ".txt"
 
-  setForegroundColor(fgYellow)
-  echo "Starting on N = ", n
   for i in 0 ..< numThreads:
     threads[i].createThread(trials, i)
   joinThreads(threads)
@@ -114,9 +112,13 @@ proc trials*(w: int) {.thread.} =
     withLock(echoLock):
       p = prob
       prob = round(prob + inc, 2)
+      if int(p / inc) mod 20 == 0:
+        setForegroundColor(fgYellow)
+        echo "---------------------------"
+        echo "N = ", n
+        echo "---------------------------"
       setForegroundColor(fgCyan)
       echo "Thread " & intToStr(w).align(2,'0') & " starting p = " & p.formatFloat(ffDecimal, 2)
-
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
