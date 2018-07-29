@@ -20,13 +20,9 @@ proc genStringNum(base, length: int): string =
     result &= chr(rand(base - 1) + ord('0'))
 
 template test(name: string, body: untyped): untyped =
-  when not defined(benchmark):
-    unittest.test name:
       body
 
 template benchmark(name: string, body: untyped): untyped =
-  when defined(benchmark):
-    block:
       let t0 = epochTime()
       body
       let duration = epochTime() - t0
@@ -127,8 +123,6 @@ suite "Testing twoColoring":
         1_000.times:
           let col = !genStringNum(2, N)
           let expected = has_MAS_correct(col, K)
-          when defined(provisional):
-            require(has_MAS_pure(col, K) == expected)
           require(has_MAS(col, K) == expected)
 
   benchmark "(C=2) has_MAS (incremental)":

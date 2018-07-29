@@ -24,95 +24,18 @@ func has_MAS_correct*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
         return true
   return false
 
-template has_MAS_pure_impl(X: untyped): untyped {.dirty.} =
+func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
   ## Find monochromatic arithmetic subseq of size K
-  ## If `known` is given, assumes that there exists no MAS in the first `known` colors
+  # Iterate over step sizes, which is the distance between each item in the MAS
   for stepSize in 1 .. (coloring.N - 1) div (K - 1):
     var mask = initColoring(2, coloring.N)
-    for i in skip(coloring.N - 1, -stepSize, K):
+    for i in skip(0, stepSize, K):
       mask[i] = 1
-
-    X.times:
+    (coloring.N - (K - 1) * stepSize).times:
       if coloring.homogenous(mask):
         return true
-      mask <<= 1
+      mask >>= 1
   return false
-
-func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high], known: Natural): bool =
-  has_MAS_pure_impl(min(coloring.N - known, coloring.N - (K - 1) * stepSize))
-
-func has_MAS_pure*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
-  has_MAS_pure_impl(coloring.N - (K - 1) * stepSize)
-
-when defined(twosided):
-  type ColoringMagic[C: static[int]] = ref object
-    known: bool
-    hasMAS: bool
-    branches: array[C, ColoringMagic[C]]
-
-  func newColoringMagic[C](): ColoringMagic[C] =
-    new(result)
-
-  func know[C](cm: ColoringMagic[C], x: Coloring[C], hasMAS: bool) =
-    var cm = cm
-    for color in x:
-      if cm.branches[color].isNil:
-        cm.branches[color] = newColoringMagic[C]()
-      cm = cm.branches[color]
-    cm.known = true
-    cm.hasMAS = hasMAS
-
-  func lookup[C](cm: ColoringMagic[C], x: Coloring[C]): tuple[pathLen: int, found: bool, hasMAS: bool] =
-    var cm = cm
-    template logic(pathLen) {.dirty.} =
-      if cm.isNil:
-        return (0, false, false)
-      if cm.known:
-        if cm.hasMAS:
-          return (0, true, true)
-        else:
-          result = (pathLen, true, false)
-
-    logic(0)
-    for i, color in x:
-      cm = cm.branches[color]
-      logic(i + 1)
-
-  # knownValues[K][Coloring] = has_MAS
-  # TODO: Support C != 2  (how??)
-  # TODO: Support multiple Ks
-  #       Current implementation assumes one K is only ever used
-  var cms: seq[ColoringMagic[2]] = @[]
-  proc has_MAS*[C: static[int]](coloring: Coloring[C], K: int): bool =
-    static: assert C == 2
-
-    while K >= cms.len:
-      cms.add(newColoringMagic[2]())
-    let cm = cms[K]
-
-    let (pathLen, found, hasMAS) = cm.lookup(coloring)
-    if found:
-      if hasMAS:
-        return true
-      result = has_MAS_pure(coloring, K, pathLen)
-    else:
-      result = has_MAS_pure(coloring, K)
-
-    cm.know(coloring, result)
-
-else:
-  func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
-    ## Find monochromatic arithmetic subseq of size K
-    # Iterate over step sizes, which is the distance between each item in the MAS
-    for stepSize in 1 .. (coloring.N - 1) div (K - 1):
-      var mask = initColoring(2, coloring.N)
-      for i in skip(0, stepSize, K):
-        mask[i] = 1
-      (coloring.N - (K - 1) * stepSize).times:
-        if coloring.homogenous(mask):
-          return true
-        mask >>= 1
-    return false
 
 proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, coloring: Coloring[C]] =
   var col = initColoring(C, N)
