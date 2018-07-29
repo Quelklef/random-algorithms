@@ -88,6 +88,12 @@ template export_varColoring_int_void(function: untyped): untyped =
 
 export_varColoring_int_void(resize)
 
+template export_Coloring_Coloring_Coloring(function: untyped): untyped =
+  func `function`*[C](col0, col1: Coloring[C]): Coloring[C] =
+    result.data = function(col0.data, col1.data)
+
+export_Coloring_Coloring_Coloring(`or`)
+
 
 iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =
   for i in 0 ..< col.N:

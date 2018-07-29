@@ -24,17 +24,24 @@ func has_MAS_correct*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
         return true
   return false
 
+func maskHasMonochromaticPosition*[C](coloring: Coloring[C], mask: Coloring[2]): bool =
+  ## Given the coloring & a mask, can the mask be placed in some position so that the
+  ## colors designated by the mask are monochromatic?
+  ## The mask should be as large or smaller than the coloring.
+  var fullMask = initColoring(2, coloring.N) or mask
+  (coloring.N - mask.N + 1).times:
+    if coloring.homogenous(fullMask):
+      return true
+    fullMask >>= 1
+  return false
+
 func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
-  ## Find monochromatic arithmetic subseq of size K
-  # Iterate over step sizes, which is the distance between each item in the MAS
   for stepSize in 1 .. (coloring.N - 1) div (K - 1):
-    var mask = initColoring(2, coloring.N)
+    var mask = initColoring(2, (K - 1) * stepSize + 1)
     for i in skip(0, stepSize, K):
       mask[i] = 1
-    (coloring.N - (K - 1) * stepSize).times:
-      if coloring.homogenous(mask):
-        return true
-      mask >>= 1
+    if coloring.maskHasMonochromaticPosition(mask):
+      return true
   return false
 
 proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, coloring: Coloring[C]] =

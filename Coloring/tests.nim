@@ -20,16 +20,19 @@ proc genStringNum(base, length: int): string =
     result &= chr(rand(base - 1) + ord('0'))
 
 template test(name: string, body: untyped): untyped =
+  when not defined(benchmark):
+    unittest.test name:
       body
 
 template benchmark(name: string, body: untyped): untyped =
-      let t0 = epochTime()
-      body
-      let duration = epochTime() - t0
-      echo("  Benchmark $#: $#s" % [
-        name.alignLeft(45),
-        duration.formatFloat(ffDecimal, precision = 10),
-      ])
+  when defined(benchmark):
+    let t0 = epochTime()
+    body
+    let duration = epochTime() - t0
+    echo("  Benchmark $#: $#s" % [
+      name.alignLeft(45),
+      duration.formatFloat(ffDecimal, precision = 10),
+    ])
 
 template testMany(name: string, body: untyped): untyped =
   test name:
@@ -98,6 +101,7 @@ suite "Testing twoColoring":
 
   test "(C=2) homoegenous":
     require homogenous(!"010", !"101")
+    require homogenous(!"101", !"010")
     require homogenous(!"11111", !"11111")
     require homogenous(!"00100", !"11011")
     require homogenous(!"10101010101", !"10101010101")
