@@ -9,6 +9,7 @@ import os
 import sequtils
 import misc
 import times
+import terminal
 
 random.randomize()
 
@@ -54,40 +55,36 @@ iterator increment(start: float, stop: float, inc: float): float =
     i += inc
 
 ###TESTING THINGS
-var n = 20
-var inc = 0.1
-var numTrials = 1000
+#COMMAND LINE FILES: number of nodes, increment for p, number of trials per n per p, 1 or 0 (True or False) if all n's in one file or seperate
+let n = if (paramCount() >= 1): paramStr(1).parseInt else: 20
+let inc = if (paramCount() >= 2): paramStr(2).parseFloat else: 0.1
+let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
+let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
 const numThreads = 12
-
-case paramCount()
-of 1:
-  n = paramStr(1).parseInt
-of 2:
-  n = paramStr(1).parseInt
-  inc = paramStr(2).parseFloat
-of 3:
-  n = paramStr(1).parseInt
-  inc = paramStr(2).parseFloat
-  numTrials = paramStr(3).parseInt
-else:
-  echo "You seem to have messed up cmd line args, using default values: ", n, ", ", inc, ", ", numTrials
+var prob: float = 0.0
+var echoLock: Lock
+var fileLock: Lock
+initLock(echoLock)
+initLock(fileLock)
 
 var threads: array[numThreads, Thread[int]]
 proc trials*(w: int) {.thread.}
 proc main*() =
-  echo "Starting on N = ", n
+
+  var saveFile: string
+  if oneFile:
+    saveFile = "Turan_X.txt"
+  else:
+    saveFile = "Turan_" & intToStr(n) & ".txt"
+
   for i in 0 ..< numThreads:
     threads[i].createThread(trials, i)
   joinThreads(threads)
 
-  var names: seq[string] = @[]
-  var p = 0.0
-  while p <= 1:
-    names.add("Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt")
-    p = round(p + inc, 2)
-  echo "File saved as: ", "Turan_" & intToStr(n) & ".txt"
+  setForegroundColor(fgYellow)
+  echo "File saved as: ", saveFile
+  resetAttributes()
 
-var prob: float = 0.0
 
 proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   var g: Graph
@@ -104,30 +101,58 @@ proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   return (diff: float(iSet(g)) - turanNum, shuffles: numS)
 
 proc trials*(w: int) {.thread.} =
-  if prob <= 1:
-    var p = prob
-    prob = round(prob + inc, 2)
+  if prob < 1:
+    var saveFile: string
+    if oneFile:
+      saveFile = "Turan_X.txt"
+    else:
+      saveFile = "Turan_" & intToStr(n) & ".txt"
+
+    var p: float
+    withLock(echoLock):
+      p = prob
+      prob = round(prob + inc, 2)
+      if int(p / inc) mod 20 == 0:
+        setForegroundColor(fgYellow)
+        echo "---------------------------"
+        echo "N = ", n
+        echo "---------------------------"
+      setForegroundColor(fgCyan)
+      echo "Thread " & intToStr(w).align(2,'0') & " starting p = " & p.formatFloat(ffDecimal, 2)
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
     var startTime: float
-
     try:
       startTime = cpuTime()
       for _ in 0 ..< numTrials:
         let (d, s) = probTuran(p)
-        file.writeRow(p, s, d)
+        if oneFile:
+          file.writeRow(n, p, s, d)
+        else:
+          file.writeRow(p, s, d)
         #[ #per trial output
         echo zip([$p, $s, $(round(d, 1))], [4, 3, 4]) #implements tabular's display method without memory accessing problems
                    .mapIt(align(it[0], it[1]))
                    .joinSurround(" | ")
                    ]#
+    except IOError:
+      setForegroundColor(fgRed)
+      echo "Error: Failed to open to file: Thread ", w, ", n ", n, ", p ", p
+      discard readLine(stdin)
     finally:
       close(file)
-    concatFile("Turan_" & intToStr(n) & ".txt", fileName)
-    removeFile(fileName)
-    echo "p = ", p.formatFloat(ffDecimal, 2), " done by thread ", w, " in ", round(cpuTime() - startTime, 2), "s"
+    withLock(fileLock):
+      concatFile(saveFile, fileName)
+      removeFile(fileName)
+    withLock(echoLock):
+      styledEcho(fgGreen, "p = " & p.formatFloat(ffDecimal, 2) & " done in " & round(cpuTime() - startTime, 2).formatFloat(ffDecimal, 2) & "s")
+    #setForegroundColor(fgGreen)
     trials(w)
+  else:
+    withLock(echoLock):
+      setForegroundColor(fgMagenta)
+      echo "Thread " & intToStr(w).align(2,'0') & " is now idle"
 
 when isMainModule:
   main()
