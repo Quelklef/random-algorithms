@@ -192,8 +192,6 @@ proc doTrials(i: int) {.thread.} =
     let file = open(filename, mode = fmAppend)
     defer: close(file)
 
-    if existingTrials >= trialCount:
-      continue
     for t in existingTrials ..< trialCount:
       let t0 = epochTime()
       let (flips, coloring) = find_noMAS_coloring(C, N, K)

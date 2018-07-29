@@ -17,4 +17,4 @@ $(cat $filename | sed "s/^/$i,/g")"
 done
 
 popd
-echo "$result" > datacollected.txt
+echo "$result" > "C${1}_K${2}_data.txt"

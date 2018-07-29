@@ -32,3 +32,10 @@ or
 take a coloring(C, N)
 See if exists two points same color square apart
 Record how long it takes to find a coloring for which this exists
+
+
+
+----
+If we can make the program 4x faster by uniformly corrupting half
+the trials, then we can interpret the output accordingly and
+effectively double the program speed
