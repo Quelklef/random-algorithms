@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# Call like 'run.sh <C> <K> <trials>'
-# Where C is C, K is K, and trials is the number
-# of trials to get for each datapoint.
+# Call like 'run.sh <C> <mask> <trials>'
 
 if [ "$#" != 3 ]; then
-  echo "Requires three args: C, K, trials"
+  echo "Requires three args: C, mask, trials"
   exit
 fi
 
@@ -17,7 +15,7 @@ fi
 mkdir -p data
 cd data
 
-dirname="C_$(printf %05d $1)__K_$(printf %05d $2)"
+dirname="C_$(printf %05d $1)__mask_$(printf %05d $2)"
 mkdir -p "$dirname"
 cd "$dirname"
 

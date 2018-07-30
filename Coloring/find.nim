@@ -54,3 +54,13 @@ proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, colo
 
     if not col.has_MAS(K):
       return (flipCount: flips, coloring: col)
+
+proc find_noMMP_coloring*(C: static[int], N: int, mask: Coloring[2]): tuple[flipCount: int] =
+  var col = initColoring(C, N)
+  var flips = 0
+
+  while col.maskHasMonochromaticPosition(mask):
+    col.randomize()
+    inc(flips)
+
+  return (flipCount: flips)

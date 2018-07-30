@@ -14,9 +14,9 @@ import io
 from misc import `*`, times
 
 #[
-4 command-line params:
+3 command-line params:
 C: C
-K: K
+mask: The mask to test for monochromicity
 trials: Number of desired trials for each datapoint
 ]#
 
@@ -27,15 +27,15 @@ when not defined(release):
 # Only supports C=2
 assert "2" == paramStr(1)
 const C = 2 #paramStr(1).parseInt
-let K = paramStr(2).parseInt
+let mask = initColoring(C, paramStr(2))
 # How many trials we want for each datapoint
 let trialCount = paramStr(3).parseInt
 const threadCount = 8
 
 # -- #
 
-var threads: array[threadCount, Thread[int]]
-var nextN = K
+var threads: array[threadCount, Thread[tuple[i: int, mask: Coloring[2]]]]
+var nextN = mask.N
 
 proc numLines(f: string): int =
   return f.readFile.string.countLines - 1
@@ -155,7 +155,7 @@ let rule      = "├" & ("─" * blockWidth & "┼") * (threadCount - 1) & "─"
 let rule2     = "├" & ("─" * blockWidth & "┬") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
 let dashesTop = "┌" & "─" * (tableWidth - 2) & "┐" & "\n"
 let dashesBot = "└" & ("─" * blockWidth & "┴") * (threadCount - 1) & "─" * blockWidth & "┘" & "\n"
-let title     = "│\e[1m" & ("Running trials for C = $# K = $#. Press enter to quit." % [$C, $K]).center(tableWidth - 2) & "\e[0m\e[2m│" & "\n"
+let title     = "│\e[1m" & ("Running trials for C = $# mask = $#. Press enter to quit." % [$C, $mask]).center(tableWidth - 2) & "\e[0m\e[2m│" & "\n"
 let blankRow  = "│" & (" " * blockWidth & "│") * threadCount & "\n"
 stdout.write("\e[2m")
 stdout.writeShifted(dashesTop)
@@ -170,7 +170,8 @@ stdout.writeShifted(dashesBot)
 stdout.write("\e[0m")
 stdout.flushFile
 
-proc doTrials(i: int) {.thread.} =
+proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
+  let (i, mask) = values
   while true:
     let N = nextN
     inc(nextN)
@@ -194,7 +195,7 @@ proc doTrials(i: int) {.thread.} =
 
     for t in existingTrials ..< trialCount:
       let t0 = epochTime()
-      let (flips, coloring) = find_noMAS_coloring(C, N, K)
+      let (flips,) = find_noMMP_coloring(C, N, mask)
       let duration = epochTime() - t0
 
       withLock(tLock):
@@ -204,7 +205,7 @@ proc doTrials(i: int) {.thread.} =
 
 proc main() =
   for i in 0 ..< threadCount:
-    threads[i].createThread(doTrials, i)
+    threads[i].createThread(doTrials, (i: i, mask: mask))
 
   var quitThread: Thread[void]
   quitThread.createThread do:
