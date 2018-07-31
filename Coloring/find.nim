@@ -24,7 +24,8 @@ func has_MAS_correct*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
         return true
   return false
 
-func maskHasMonochromaticPosition*[C](coloring: Coloring[C], mask: Coloring[2]): bool =
+func hasMMP*[C](coloring: Coloring[C], mask: Coloring[2]): bool =
+  ## MMP stands for Mask Monochromatic Position
   ## Given the coloring & a mask, can the mask be placed in some position so that the
   ## colors designated by the mask are monochromatic?
   ## The mask should be as large or smaller than the coloring.
@@ -40,7 +41,7 @@ func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
     var mask = initColoring(2, (K - 1) * stepSize + 1)
     for i in skip(0, stepSize, K):
       mask[i] = 1
-    if coloring.maskHasMonochromaticPosition(mask):
+    if coloring.hasMMP(mask):
       return true
   return false
 
@@ -55,12 +56,12 @@ proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, colo
     if not col.has_MAS(K):
       return (flipCount: flips, coloring: col)
 
-proc find_noMMP_coloring*(C: static[int], N: int, mask: Coloring[2]): tuple[flipCount: int] =
+proc find_noMMP_coloring*(C: static[int], N: int, mask: Coloring[2]): tuple[flipCount: int, coloring: Coloring[C]] =
   var col = initColoring(C, N)
   var flips = 0
 
-  while col.maskHasMonochromaticPosition(mask):
+  while col.hasMMP(mask):
     col.randomize()
     inc(flips)
 
-  return (flipCount: flips)
+  return (flipCount: flips, coloring: col)

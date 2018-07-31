@@ -148,11 +148,8 @@ func resize*(col: var TwoColoring, size: Natural) =
   col.N = size
 
 func `or`*(col0, col1: TwoColoring): TwoColoring =
-  when compileOption("checks"):
-    if col0.N != col1.N:
-      raise ValueError.newException("The two colorings must be the same size.")
-
-  var resultData = newSeq[uint64](col0.data.len)
-  for i in 0 ..< col0.data.len:
+  ## Result takes the length of the longest coloring
+  var resultData = newSeq[uint64](max(col0.data.len, col1.data.len))
+  for i in 0 ..< min(col0.data.len, col1.data.len):
     resultData[i] = col0.data[i] or col1.data[i]
-  return TwoColoring(N: col0.N, data: resultData)
+  return TwoColoring(N: max(col0.N, col1.N), data: resultData)

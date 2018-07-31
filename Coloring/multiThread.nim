@@ -195,7 +195,7 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
 
     for t in existingTrials ..< trialCount:
       let t0 = epochTime()
-      let (flips,) = find_noMMP_coloring(C, N, mask)
+      let (flips, _) = find_noMMP_coloring(C, N, mask)
       let duration = epochTime() - t0
 
       withLock(tLock):

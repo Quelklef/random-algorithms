@@ -173,11 +173,14 @@ suite "Testing twoColoring":
     for c in zeros:
       require(c == '0')
 
-  testMany "(C=2) maskHasMonochromaticPosition":
-    require maskHasMonochromaticPosition(!"11111", !"101")
-    require maskHasMonochromaticPosition(!"10101", !"101")
-    require maskHasMonochromaticPosition(!"11001", !"011")
-    require maskHasMonochromaticPosition(!"1", !"1")
-    require maskHasMonochromaticPosition(!"01001000", !"10001")
+  test "(C=2) hasMMP":
+    require hasMMP(!"11111", !"101")
+    require hasMMP(!"10101", !"101")
+    require hasMMP(!"11001", !"011")
+    require hasMMP(!"1", !"1")
+    require hasMMP(!"01001000", !"10001")
+    require(not hasMMP(!"101010101", !"11"))
+    require(not hasMMP(!"1001001", !"111"))
+    require(not hasMMP(!"100101", !"10001"))
 
   discard  # Run once after each test
