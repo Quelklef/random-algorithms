@@ -14,11 +14,17 @@ func initNode*(n: string): Node =
 func setPosition*(n: Node, i: int): void =
   n.position =  i
 
+func equals*(n1: Node, n2: Node): bool =
+  return n1.name == n2.name
+
 func addVertex*(n1: Node, n2: Node): void =
     n1.edges.add(n2)
 
 func connected*(n1: Node, n2: Node): bool =
   return n2 in n1.edges
+
+func degree*(n1: Node): int =
+  return n1.edges.len
 
 func right(n1: Node, n2: Node): bool =
   if n1.position < n2.position:

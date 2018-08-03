@@ -56,6 +56,7 @@ iterator increment(start: float, stop: float, inc: float): float =
 
 ###TESTING THINGS
 #COMMAND LINE FILES: number of nodes, increment for p, number of trials per n per p, 1 or 0 (True or False) if all n's in one file or seperate
+#[
 let n = if (paramCount() >= 1): paramStr(1).parseInt else: 20
 let inc = if (paramCount() >= 2): paramStr(2).parseFloat else: 0.1
 let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
@@ -156,7 +157,7 @@ proc trials*(w: int) {.thread.} =
 
 when isMainModule:
   main()
-
+]#
 #Finds numShuffles for all simple graphs that have n nodes and e edges
 proc turanAll*(n:int, e:int): seq[int] =
   var turanNum = float(n)/(2*e/n + 1)
