@@ -10,7 +10,7 @@ import locks
 
 import coloring
 import find
-import io
+import fileio
 from misc import `*`, times
 
 #[

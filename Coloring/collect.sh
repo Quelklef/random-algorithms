@@ -1,13 +1,12 @@
 #!/bin/bash
 
 if [ "$#" != 2 ]; then
-  echo "Requires two args: C, K"
+  echo "Requires two args: C, mask"
   exit
 fi
 
-N="$(ls | wc -l)"
 result=""
-pushd data/"C_$(printf %05d $1)__K_$(printf %05d $2)"
+pushd data/"C_$(printf %05d $1)__mask_$2"
 i=1
 for filename in ./*; do
   echo "Collecting from $filename"
@@ -17,4 +16,4 @@ $(cat $filename | sed "s/^/$i,/g")"
 done
 
 popd
-echo "$result" > "C${1}_K${2}_data.txt"
+echo "$result" > "C_${1}__mask_${2}_data.txt"
