@@ -2,7 +2,7 @@ import strutils
 import sequtils
 import tables
 
-import misc
+import ../util
 
 # Simple CSV output implementation
 

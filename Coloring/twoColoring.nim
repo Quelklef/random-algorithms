@@ -6,7 +6,7 @@ import sugar
 import sequtils
 import hashes
 
-from misc import rand_u64, times
+from ../util import rand_u64, times
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64

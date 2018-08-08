@@ -7,7 +7,7 @@ import strutils
 import coloring
 import twoColoring
 import find
-from misc import times
+from ../util import times
 
 # This module actually encapsulates both testing and benchmarking
 # Run with -d:benchmark to benchmark instead of testing

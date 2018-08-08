@@ -11,7 +11,7 @@ import locks
 import coloring
 import find
 import fileio
-from misc import `*`, times
+from ../util import `*`, times
 
 #[
 3 command-line params:
