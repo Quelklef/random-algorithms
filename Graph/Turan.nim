@@ -55,11 +55,13 @@ iterator increment(start: float, stop: float, inc: float): float =
     i += inc
 
 ###TESTING THINGS
-#COMMAND LINE FILES: number of nodes, increment for p, number of trials per n per p, 1 or 0 (True or False) if all n's in one file or seperate
+#COMMAND LINE FILES: number of nodes, increment for p, number of trials per n per p, 1 or 0 (True or False) if all n's in one file or seperate, 1 or 0 to calculate mean 
+
 let n = if (paramCount() >= 1): paramStr(1).parseInt else: 20
 let inc = if (paramCount() >= 2): paramStr(2).parseFloat else: 0.1
 let numTrials = if (paramCount() >= 3): paramStr(3).parseInt else: 1000
 let oneFile = paramCount() >= 4 and paramStr(4).parseInt == 1
+let stat = if (paramCount() >= 5): paramStr(5).parseInt != 0 else: true
 const numThreads = 12
 var prob: float = 0.0
 var echoLock: Lock
@@ -86,7 +88,7 @@ proc main*() =
   resetAttributes()
 
 
-proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
+proc probTuran*(p: float): tuple[turanDiff: float, shuffles: int, greedyDiff: float] =
   var g: Graph
   var e: int
 
@@ -98,20 +100,24 @@ proc probTuran*(p: float): tuple[diff: float, shuffles: int] =
   while float(iSet(g)) < turanNum:
     numS += 1
     shuffle(g)
-  return (diff: float(iSet(g)) - turanNum, shuffles: numS)
+  return (turanDiff: float(iSet(g)) - turanNum, shuffles: numS, greedyDiff: float(greedyISet(g)) - turanNum)
 
 proc trials*(w: int) {.thread.} =
-  if prob < 1:
+  var p: float
+  var sumTuran = 0.0
+  var sumGreedy = 0.0
+
+  withLock(fileLock):
+    p = prob
+    prob = round(prob + inc, 2)
+  if p <= 1:
     var saveFile: string
     if oneFile:
       saveFile = "Turan_X.txt"
     else:
       saveFile = "Turan_" & intToStr(n) & ".txt"
 
-    var p: float
     withLock(echoLock):
-      p = prob
-      prob = round(prob + inc, 2)
       if int(p / inc) mod 20 == 0:
         setForegroundColor(fgYellow)
         echo "---------------------------"
@@ -126,11 +132,14 @@ proc trials*(w: int) {.thread.} =
     try:
       startTime = cpuTime()
       for _ in 0 ..< numTrials:
-        let (d, s) = probTuran(p)
+        let (t, s, g) = probTuran(p)
         if oneFile:
-          file.writeRow(n, p, s, d)
+          file.writeRow(n, p, s, t, g)
         else:
-          file.writeRow(p, s, d)
+          file.writeRow(p, s, t, g)
+        if stat:
+          sumTuran += t
+          sumGreedy += g
         #[ #per trial output
         echo zip([$p, $s, $(round(d, 1))], [4, 3, 4]) #implements tabular's display method without memory accessing problems
                    .mapIt(align(it[0], it[1]))
@@ -142,6 +151,12 @@ proc trials*(w: int) {.thread.} =
       discard readLine(stdin)
     finally:
       close(file)
+
+    if stat:
+      withLock(fileLock):
+        let statFile = open("Turan_Stat.txt", mode = fmAppend)
+        statFile.writeRow(n, p, sumTuran / float(numTrials), sumGreedy / float(numTrials))
+
     withLock(fileLock):
       concatFile(saveFile, fileName)
       removeFile(fileName)
@@ -170,6 +185,7 @@ proc turanAll*(n:int, e:int): seq[int] =
       numS += 1
       shuffle(g)
     result.add(numS)
+
 
 proc turan*(n: int, e: int = -1): int =
   result = 1

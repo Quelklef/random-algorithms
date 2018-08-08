@@ -11,7 +11,7 @@ const names = @["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot", "Golf",
 "November", "Oscar", "Papa", "Quebec", "Romeo", "Sierra", "Tango", "Uniform", "Victor", "Whiskey", "X-ray", "Yankee", "Zulu"]
 
 type Graph* = object
-  nodes: seq[Node]
+  nodes*: seq[Node]
 
 func size*(g: Graph): int =
   return g.nodes.len
@@ -118,6 +118,38 @@ func iSet*(g: Graph): int =
   else:
     return r
 
+func removeNode(i: int, g: var Graph): void =
+  #Remove the edge connections
+  #go to each node connected to the node you wish to remove
+  for r in g.nodes[i].edges:
+    #go through that node's edgelist
+    for a in 0..<degree(r):
+      #remove the edge that points to the node to remove
+      if equals(r.edges[a], g.nodes[i]):
+        r.edges.delete(a)
+        break
+  #remove the actual node
+  g.nodes.delete(i)
+
+func findGreedySet(g1: Graph): seq[Node] =
+  var g:Graph = g1
+  while size(g) > 0:
+    var tempIndex:int = 0
+    for i in 1..<size(g):
+      if degree(g.nodes[i]) < degree(g.nodes[tempIndex]):
+        tempIndex = i
+    result.add(g.nodes[tempIndex])
+    var r: int = 0
+    while r < size(g):
+      if connected(g.nodes[r], g.nodes[tempIndex]):
+        removeNode(r, g)
+        r-=1
+      r+=1
+    g.nodes.delete(tempIndex)
+
+
+func greedyISet*(g: Graph): int =
+    return findGreedySet(g).len
 #shuffles the positions of all the nodes within g
 #[
 func shuffle*(g: Graph) =
