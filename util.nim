@@ -36,3 +36,19 @@ func `*`*(s: string, n: int): string =
   result = ""
   n.times:
     result.add(s)
+
+func `{}`*[A, B](s: string, sl: HSlice[A, B]): string =
+  ## Like `[]`, but instead of erroring when out of range,
+  ## just shortens the result
+  ## "abcd"{1 .. 100} == "abcd"
+  when A is BackwardsIndex:
+    let lo = s.len - sl.a.int
+  else:
+    let lo = sl.a
+
+  when B is BackwardsIndex:
+    let hi = s.len - sl.b.int
+  else:
+    let hi = sl.b
+
+  return s[max(lo, 0) .. min(hi, s.len - 1)]

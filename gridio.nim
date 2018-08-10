@@ -2,8 +2,9 @@ import options
 import sugar
 import sequtils
 import terminal
+import tables
 
-from util import sum, `*`
+from util import sum, `*`, `{}`
 
 const
   # Directions always follow the order NESW;
@@ -22,6 +23,30 @@ const
   gfx_ES = "┌"
   gfx_EW = "─"
   gfx_SW = "┐"
+
+  gfx_N = "╵"
+  gfx_E = "╶"
+  gfx_S = "╷"
+  gfx_W = "╴"
+
+const gfx_table = {
+  # (north, east, south, west) -> string
+  (true , true , true , true ): gfx_NESW,
+  (false, true , true , true ): gfx_ESW ,
+  (true , false, true , true ): gfx_NSW ,
+  (true , true , false, true ): gfx_NEW ,
+  (true , true , true , false): gfx_NES ,
+  (true , true , false, false): gfx_NE  ,
+  (true , false, true , false): gfx_NS  ,
+  (true , false, false, true ): gfx_NW  ,
+  (false, true , true , false): gfx_ES  ,
+  (false, true , false, true ): gfx_EW  ,
+  (false, false, true , true ): gfx_SW  ,
+  (true , false, false, false): gfx_N  ,
+  (false, true , false, false): gfx_E  ,
+  (false, false, true , false): gfx_S  ,
+  (false, false, false, true ): gfx_W  ,
+}.toTable
 
 # tlx/tly/brx/bry: (top|bottom)-(left|right) (x|y)
 
@@ -73,8 +98,14 @@ using
   gridio: Gridio
   ori: Orientation
   availSize: int
+  tlx, tly, brx, bry: int
 
-func fix(gridio; ori; tlx, tly, brx, bry: int) =
+func width*(gridio): int =
+  return gridio.brx - gridio.tlx + 1
+func height*(gridio): int =
+  return gridio.bry - gridio.tly + 1
+
+func fix(gridio; ori; tlx, tly, brx, bry) =
   # Recursively calculates location
   # tlx/tly/brx/bry denote the BOUNDS
 
@@ -127,19 +158,73 @@ func fix(gridio; ori; tlx, tly, brx, bry: int) =
       child.fix(gridio.childOrientation, child_tlx, child_tly, child_brx, child_bry)
       child_tly = child_bry + 2
 
-proc drawOutline*(gridio; style = noStyle) =
-  writeBox(gridio.tlx - 1, gridio.tly - 1, gridio.brx + 1, gridio.bry + 1, style)
+proc calculateOutline(gridio; mat: var seq[seq[bool]]) =
+  # Calculate the outline for a gridio
+  # Mutate a matrix of boolean values so that ``true`` represents that
+  # the outline passes through that point
+  for x in gridio.tlx - 1 .. gridio.brx + 1:
+    mat[x][gridio.tly - 1] = true
+    mat[x][gridio.bry + 1] = true
+  for y in gridio.tly - 1 .. gridio.bry + 1:
+    mat[gridio.tlx - 1][y] = true
+    mat[gridio.brx + 1][y] = true
+
   for child in gridio.children.mitems:
-    child.drawOutline(style)
-  # Set the cursor because otherwise the prompt may overwrite what we've put
-  stdout.setCursorPos(0, gridio.bry + 2)
+    child.calculateOutline(mat)
+
+func showCell(north, west, center, east, south: bool): string =
+  if center == false:
+    return " "
+  return gfx_table[(north, east, south, west)]
+
+proc writeBox(mat: seq[seq[bool]]; style: set[Style]) =
+  template `{}`(s: seq[seq[bool]]; i, j: int): bool =
+    if i < 0 or i >= s.len: false
+    elif j < 0 or j >= s[i].len: false
+    else: s[i][j]
+
+  for x in 0 ..< mat.len:
+    for y in 0 ..< mat[x].len:
+      stdout.setCursorPos(x, y)
+      writeStyled(
+        showCell(
+                         mat{x, y - 1},
+          mat{x - 1, y}, mat{x, y    }, mat{x + 1, y},
+                         mat{x, y + 1},
+        ),
+        style,
+      )
+
+proc drawOutline*(gridio; style = noStyle) =
+  ## Draw an outline of the gridio and its descendants to stdio.
+  ## Call fix() first.
+  # +2 for borders!
+  var mat = newSeqWith(gridio.width + 2, newSeqWith(gridio.height + 2, false))
+  gridio.calculateOutline(mat)
+  writeBox(mat, style)
 
 proc fix*(gridio) =
+  ## Calculate the actual locations and sizes of the gridio and all
+  ## child gridios. Should be called before any drawing happens.
+  ## Should be called after any resizing.
   # Would expect it to be ``terminalWidth() - 1``; dunno why it needs ``- 2``.
   gridio.fix(not gridio.childOrientation, 1, 1, terminalWidth() - 2, terminalHeight() - 1)
-proc fix*(gridio; tlx, tly, brx, bry: int) =
+proc fix*(gridio; tlx, tly, brx, bry) =
+  ## Fix gridio to terminal size
   # Adjust by 1 for borders
   gridio.fix(not gridio.childOrientation, tlx + 1, tly + 1, brx - 1, bry - 1)
+
+func wordWrap(text: string; width: int): seq[string] =
+  result = @[]
+  var i = 0
+  while i <= text.len:
+    result.add(text{i ..< i + width})
+    i += width
+
+proc write*(gridio; text: string) =
+  for i, line in text.wordWrap(width = gridio.brx - gridio.tlx + 1):
+    stdout.setCursorPos(gridio.tlx, gridio.tly + i)
+    stdout.write(line)
 
 func gridio(childOrientation: Orientation; size: Option[int]): Gridio =
   return Gridio(
@@ -166,6 +251,18 @@ func box*(size: int): Gridio =
 func box*(): Gridio =
   return rows()
 
+# Access to calculated attributes
+func topLeft*(gridio): (int, int) =
+  return (gridio.tlx, gridio.tly)
+func bottomRight*(gridio): (int, int) =
+  return (gridio.brx, gridio.bry)
+
+proc placeCursorAfter*(gridio) =
+  ## May need to be called after all drawing is done
+  ## Sets the cursor after the gridio so that the promp exiting does not
+  ## overwrite it
+  stdout.setCursorPos(0, gridio.bry + 2)
+
 when isMainModule:
   let big = cols(50)
 
@@ -181,3 +278,7 @@ when isMainModule:
   big.children.add([small, small2])
   big.fix()
   big.drawOutline()
+
+  smol3.write("Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!")
+
+  placeCursorAfter(big)
