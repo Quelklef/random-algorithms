@@ -42,10 +42,10 @@ const gfx_table = {
   (false, true , true , false): gfx_ES  ,
   (false, true , false, true ): gfx_EW  ,
   (false, false, true , true ): gfx_SW  ,
-  (true , false, false, false): gfx_N  ,
-  (false, true , false, false): gfx_E  ,
-  (false, false, true , false): gfx_S  ,
-  (false, false, false, true ): gfx_W  ,
+  (true , false, false, false): gfx_N   ,
+  (false, true , false, false): gfx_E   ,
+  (false, false, true , false): gfx_S   ,
+  (false, false, false, true ): gfx_W   ,
 }.toTable
 
 # tlx/tly/brx/bry: (top|bottom)-(left|right) (x|y)
@@ -82,6 +82,14 @@ func `not`(o: Orientation): Orientation =
   of oHorizontal:
     return oVertical
 
+type WriteStyle = enum
+  # Each write is placed on top of the last without clearing
+  wsOverlay
+  # Each write calls for a clear followed by an overlay
+  wsOverwrite
+  # Each write is placed underneath the last, looping at the bottom
+  wsRadar
+
 type Gridio = ref object
   childOrientation: Orientation
   # none() -> expand to available space
@@ -91,14 +99,25 @@ type Gridio = ref object
   size: Option[int]
   children: seq[Gridio]
 
+  writeStyle: WriteStyle
+
   # Calculated attributes
   tlx, tly, brx, bry: int
+
+  # Conditional attributes; only used for some WriteStyles
+  # Used by wsOverwrite
+  # Keeps the row that the last write stopped on
+  prevWriteEndY: int
+  # Used by wsRadar
+  # Keeps the row that the next write should start at
+  nextWriteStartY: int
 
 using
   gridio: Gridio
   ori: Orientation
   availSize: int
   tlx, tly, brx, bry: int
+  style: set[Style]
 
 func width*(gridio): int =
   return gridio.brx - gridio.tlx + 1
@@ -131,6 +150,9 @@ func fix(gridio; ori; tlx, tly, brx, bry) =
           raise RangeError.newException("Gridio out of bounds")
       gridio.bry = desiredBry
       gridio.brx = brx
+
+  gridio.prevWriteEndY = gridio.bry
+  gridio.nextWriteStartY = gridio.tly
 
   var child_tlx = gridio.tlx
   var child_tly = gridio.tly
@@ -177,7 +199,7 @@ func showCell(north, west, center, east, south: bool): string =
     return " "
   return gfx_table[(north, east, south, west)]
 
-proc writeBox(mat: seq[seq[bool]]; style: set[Style]) =
+proc writeBox(mat: seq[seq[bool]]; style) =
   template `{}`(s: seq[seq[bool]]; i, j: int): bool =
     if i < 0 or i >= s.len: false
     elif j < 0 or j >= s[i].len: false
@@ -221,10 +243,30 @@ func wordWrap(text: string; width: int): seq[string] =
     result.add(text{i ..< i + width})
     i += width
 
-proc write*(gridio; text: string) =
-  for i, line in text.wordWrap(width = gridio.brx - gridio.tlx + 1):
-    stdout.setCursorPos(gridio.tlx, gridio.tly + i)
-    stdout.write(line)
+proc writeHelperRadar(gridio; text: string, style) =
+  stdout.setCursorPos(gridio.tlx, gridio.nextWriteStartY)
+  writeStyled(text, style)
+  gridio.nextWriteStartY += 1
+  if unlikely(gridio.nextWriteStartY > gridio.bry):
+    gridio.nextWriteStartY = gridio.tly
+
+proc writeHelper(gridio; texts: seq[string], style) =
+  if gridio.writeStyle == wsRadar:
+    for line in texts:
+      gridio.writeHelperRadar(line, style)
+  else:
+    for i, line in texts:
+      stdout.setCursorPos(gridio.tlx, gridio.tly + i)
+      writeStyled(line, style)
+    if gridio.writeStyle == wsOverwrite:
+      gridio.prevWriteEndY = gridio.tly + texts.len
+
+proc write*(gridio; text: string, style = noStyle) =
+  if gridio.writeStyle == wsOverwrite:
+    for y in gridio.tly .. gridio.prevWriteEndY:
+      stdout.setCursorPos(gridio.tlx, y)
+      stdout.write(" " * gridio.width)
+  gridio.writeHelper(text.wordWrap(gridio.width), style)
 
 func gridio(childOrientation: Orientation; size: Option[int]): Gridio =
   return Gridio(
@@ -264,7 +306,7 @@ proc placeCursorAfter*(gridio) =
   stdout.setCursorPos(0, gridio.bry + 2)
 
 when isMainModule:
-  let big = cols(50)
+  let big = cols(45)
 
   let small = rows(30)
   let smol = box(20)
@@ -279,6 +321,9 @@ when isMainModule:
   big.fix()
   big.drawOutline()
 
-  smol3.write("Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!Hello!!")
+  smol3.writeStyle = wsRadar
+  for i in 0 ..< 100:
+    smol3.write($chr(i + ord('A')))
+    discard readline(stdin)
 
   placeCursorAfter(big)
