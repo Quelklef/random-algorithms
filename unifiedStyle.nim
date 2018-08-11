@@ -43,7 +43,7 @@ type Stylish* = object
   foreground: Option[UnifiedColor]
 
 template initImpl(backgroundType, foregroundType) =
-  func stylish*(textStyles: set[terminal.Style] = {}, background: backgroundType, foreground: foregroundType): Stylish =
+  func stylish*(foreground: foregroundType, background: backgroundType, textStyles: set[terminal.Style] = {}): Stylish =
     return Stylish(textStyles: textStyles, background: some(background.ucolor), foreground: some(foreground.ucolor))
 
 initImpl(terminal.BackgroundColor, terminal.ForegroundColor)
@@ -51,9 +51,9 @@ initImpl(colors.Color            , terminal.ForegroundColor)
 initImpl(terminal.BackgroundColor, colors.Color            )
 initImpl(colors.Color            , colors.Color            )
 
-func stylish*(textStyles: set[terminal.Style] = {}, background: terminal.BackgroundColor): Stylish =
+func stylish*(background: terminal.BackgroundColor, textStyles: set[terminal.Style] = {}): Stylish =
   return Stylish(textStyles: textStyles, background: some(background.ucolor), foreground: none(UnifiedColor     ))
-func stylish*(textStyles: set[terminal.Style] = {}, foreground: terminal.ForegroundColor): Stylish =
+func stylish*(foreground: terminal.ForegroundColor, textStyles: set[terminal.Style] = {}): Stylish =
   return Stylish(textStyles: textStyles, background: none(UnifiedColor     ), foreground: some(foreground.ucolor))
 func stylish*(textStyles: set[terminal.Style] = {}): Stylish =
   return Stylish(textStyles: textStyles, background: none(UnifiedColor     ), foreground: none(UnifiedColor     ))
