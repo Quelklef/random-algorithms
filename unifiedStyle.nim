@@ -60,6 +60,7 @@ func stylish*(textStyles: set[terminal.Style] = {}): Stylish =
 
 let styleless* = stylish()
 
+# TODO: Rename to writeStylish
 proc writeStyled*(text: string, stylish: Stylish) =
   if stylish.foreground.isSome:
     let ucolor = stylish.foreground.unsafeGet

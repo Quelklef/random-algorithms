@@ -234,7 +234,7 @@ proc writeHelperRadar(gridio; text: string; stylish) =
   stdout.setCursorPos(gridio.tlx, gridio.nextWriteStartY)
   writeStyled(text, stylish)
   gridio.nextWriteStartY += 1
-  if unlikely(gridio.nextWriteStartY > gridio.bry):
+  if unlikely(gridio.nextWriteStartY >= gridio.bry):
     gridio.nextWriteStartY = gridio.tly
 
 proc writeHelper(gridio; texts: seq[string]; stylish) =
@@ -242,6 +242,7 @@ proc writeHelper(gridio; texts: seq[string]; stylish) =
     for line in texts:
       gridio.writeHelperRadar(line, stylish)
   else:
+    # TODO: Move to a .clear()
     for i, line in texts:
       stdout.setCursorPos(gridio.tlx, gridio.tly + i)
       writeStyled(line, stylish)

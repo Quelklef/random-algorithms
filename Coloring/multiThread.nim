@@ -60,12 +60,8 @@ func timeFormat(t: float): string =
 
   result              = mils.`$`.align(3, ' ') & "ms"
   if secs > 0: result = secs.`$`.align(2, ' ') & "s " & $result
-  else:        result = "    " & $result
   if mins > 0: result = mins.`$`.align(2, ' ') & "m " & $result
-  else:        result = "    " & $result
   if hurs > 0: result = hurs.`$`.align(2, ' ') & "h " & $result
-  else:        result = "    " & $result
-  result &= ""
 
 func reprInXChars(val: float, n: int, suffix: string): string =
   const prefixes = [
@@ -109,7 +105,7 @@ displayChannel.open()
 proc displayN(i: int; N: int, stylish = styleless) =
   displayChannel.send((i: i, child_i: 0, msg: " N = " & $N, stylish: stylish))
 proc displayTrialCount(i: int; count: int, stylish = styleless) =
-  displayChannel.send((i: i, child_i: 1, msg: "$# / $# trials ($#%)" % [
+  displayChannel.send((i: i, child_i: 1, msg: " $# / $# trials ($#%)" % [
     count.`$`.align(($trialCount).len),
     $trialCount,
     int(count / trialCount * 100).`$`.align(3),
@@ -147,8 +143,8 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let duration = epochTime() - t0
 
       displayTrialCount(i, t)
-      let halfWidth = (columnWidth - 1) div 2
-      let trialStr = "$# $#" % [
+      let halfWidth = (columnWidth - 2 - 1) div 2
+      let trialStr = " $# $# " % [
         timeFormat(duration).align(halfWidth),
         flips.float.reprInXChars(halfWidth - 1, "f"),
       ]
