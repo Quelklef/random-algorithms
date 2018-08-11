@@ -100,7 +100,7 @@ using
   ori: Orientation
   availSize: int
   tlx, tly, brx, bry: int
-  style: Stylish
+  stylish: Stylish
 
 func width*(gridio): int =
   ## .fix() must be called for this to work properly
@@ -184,7 +184,7 @@ func showCell(north, west, center, east, south: bool): string =
     return " "
   return gfx_table[(north, east, south, west)]
 
-proc writeBox(mat: seq[seq[bool]]; style) =
+proc writeBox(mat: seq[seq[bool]]; stylish) =
   template `{}`(s: seq[seq[bool]]; i, j: int): bool =
     if i < 0 or i >= s.len: false
     elif j < 0 or j >= s[i].len: false
@@ -199,16 +199,16 @@ proc writeBox(mat: seq[seq[bool]]; style) =
           mat{x - 1, y}, mat{x, y    }, mat{x + 1, y},
                          mat{x, y + 1},
         ),
-        style,
+        stylish,
       )
 
-proc drawOutline*(gridio; style = styleless) =
+proc drawOutline*(gridio; stylish = styleless) =
   ## Draw an outline of the gridio and its descendants to stdio.
   ## Call fix() first.
   # +2 for borders!
   var mat = newSeqWith(gridio.width + 2, newSeqWith(gridio.height + 2, false))
   gridio.calculateOutline(mat)
-  writeBox(mat, style)
+  writeBox(mat, stylish)
   stdout.flushFile
 
 proc fix*(gridio) =
@@ -230,30 +230,30 @@ func wordWrap(text: string; width: int): seq[string] =
     result.add(text{i ..< i + width})
     i += width
 
-proc writeHelperRadar(gridio; text: string; style) =
+proc writeHelperRadar(gridio; text: string; stylish) =
   stdout.setCursorPos(gridio.tlx, gridio.nextWriteStartY)
-  writeStyled(text, style)
+  writeStyled(text, stylish)
   gridio.nextWriteStartY += 1
   if unlikely(gridio.nextWriteStartY > gridio.bry):
     gridio.nextWriteStartY = gridio.tly
 
-proc writeHelper(gridio; texts: seq[string]; style) =
+proc writeHelper(gridio; texts: seq[string]; stylish) =
   if gridio.writeStyle == wsRadar:
     for line in texts:
-      gridio.writeHelperRadar(line, style)
+      gridio.writeHelperRadar(line, stylish)
   else:
     for i, line in texts:
       stdout.setCursorPos(gridio.tlx, gridio.tly + i)
-      writeStyled(line, style)
+      writeStyled(line, stylish)
     if gridio.writeStyle == wsOverwrite:
       gridio.prevWriteEndY = gridio.tly + texts.len
 
-proc write*(gridio; text: string; style = styleless) =
+proc write*(gridio; text: string; stylish = styleless) =
   if gridio.writeStyle == wsOverwrite:
     for y in gridio.tly .. gridio.prevWriteEndY:
       stdout.setCursorPos(gridio.tlx, y)
       stdout.write(" " * gridio.width)
-  gridio.writeHelper(text.wordWrap(gridio.width), style)
+  gridio.writeHelper(text.wordWrap(gridio.width), stylish)
   stdout.flushFile
 
 template initImpl(name; orientation) =
