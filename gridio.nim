@@ -4,87 +4,45 @@ import sequtils
 import terminal
 import tables
 
-export terminal.Style
-
 from util import sum, `*`, `{}`
 
-const
-  # Directions always follow the order NESW;
-  # each oriection is "gfx_NESW" with 0 or more
-  # character removals
-  gfx_NESW = "┼"
-
-  gfx_ESW = "┬"
-  gfx_NSW = "┤"
-  gfx_NEW = "┴"
-  gfx_NES = "├"
-
-  gfx_NE = "└"
-  gfx_NS = "│"
-  gfx_NW = "┘"
-  gfx_ES = "┌"
-  gfx_EW = "─"
-  gfx_SW = "┐"
-
-  gfx_N = "╵"
-  gfx_E = "╶"
-  gfx_S = "╷"
-  gfx_W = "╴"
+export terminal.Style
 
 const gfx_table = {
   # (north, east, south, west) -> string
-  (true , true , true , true ): gfx_NESW,
-  (false, true , true , true ): gfx_ESW ,
-  (true , false, true , true ): gfx_NSW ,
-  (true , true , false, true ): gfx_NEW ,
-  (true , true , true , false): gfx_NES ,
-  (true , true , false, false): gfx_NE  ,
-  (true , false, true , false): gfx_NS  ,
-  (true , false, false, true ): gfx_NW  ,
-  (false, true , true , false): gfx_ES  ,
-  (false, true , false, true ): gfx_EW  ,
-  (false, false, true , true ): gfx_SW  ,
-  (true , false, false, false): gfx_N   ,
-  (false, true , false, false): gfx_E   ,
-  (false, false, true , false): gfx_S   ,
-  (false, false, false, true ): gfx_W   ,
+  (true , true , true , true ): "┼",
+  (false, true , true , true ): "┬",
+  (true , false, true , true ): "┤",
+  (true , true , false, true ): "┴",
+  (true , true , true , false): "├",
+  (true , true , false, false): "└",
+  (true , false, true , false): "│",
+  (true , false, false, true ): "┘",
+  (false, true , true , false): "┌",
+  (false, true , false, true ): "─",
+  (false, false, true , true ): "┐",
+  (true , false, false, false): "╵",
+  (false, true , false, false): "╶",
+  (false, false, true , false): "╷",
+  (false, false, false, true ): "╴",
 }.toTable
 
 # tlx/tly/brx/bry: (top|bottom)-(left|right) (x|y)
 
 const noStyle: set[Style] = {}
 
-proc writeBox(tlx, tly, brx, bry: int; style = noStyle) =
-  let width = brx - tlx + 1
-
-  stdout.setCursorPos(tlx, tly)
-  writeStyled(
-    gfx_ES & gfx_EW * (width - 2) & gfx_SW
-    , style)
-
-  for y in tly + 1 .. bry - 1:
-    stdout.setCursorPos(tlx, y)
-    writeStyled(gfx_NS, style)
-    stdout.setCursorPos(brx, y)
-    writeStyled(gfx_NS, style)
-
-  stdout.setCursorPos(tlx, bry)
-  writeStyled(
-    gfx_NE & gfx_EW * (width - 2) & gfx_NW & "\n"
-    , style)
-
-type Orientation = enum
+type Orientation* = enum
   oVertical
   oHorizontal
 
-func `not`(o: Orientation): Orientation =
+func `not`*(o: Orientation): Orientation =
   case o
   of oVertical:
     return oHorizontal
   of oHorizontal:
     return oVertical
 
-type WriteStyle = enum
+type WriteStyle* = enum
   # Each write is placed on top of the last without clearing
   wsOverlay
   # Each write calls for a clear followed by an overlay
@@ -92,7 +50,7 @@ type WriteStyle = enum
   # Each write is placed underneath the last, looping at the bottom
   wsRadar
 
-type Gridio = ref object
+type Gridio* = ref object
   childOrientation: Orientation
   # none() -> expand to available space
   # All boxes expand to available space in the oriection perpendicular
@@ -126,7 +84,7 @@ func width*(gridio): int =
 func height*(gridio): int =
   return gridio.bry - gridio.tly + 1
 
-func fix(gridio; ori; tlx, tly, brx, bry) =
+func fix(gridio; ori; tlx; tly; brx; bry) =
   # Recursively calculates location
   # tlx/tly/brx/bry denote the BOUNDS
 
@@ -233,6 +191,7 @@ proc fix*(gridio) =
   ## Should be called after any resizing.
   # Would expect it to be ``terminalWidth() - 1``; dunno why it needs ``- 2``.
   gridio.fix(not gridio.childOrientation, 1, 1, terminalWidth() - 2, terminalHeight() - 1)
+
 proc fix*(gridio; tlx, tly, brx, bry) =
   ## Fix gridio to terminal size
   # Adjust by 1 for borders
