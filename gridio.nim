@@ -230,19 +230,36 @@ func wordWrap(text: string; width: int): seq[string] =
     result.add(text{i ..< i + width})
     i += width
 
+proc clearLine*(gridio; y: int) =
+  stdout.setCursorPos(gridio.tlx, y)
+  stdout.write(" " * gridio.width)
+
 proc writeHelperRadar(gridio; text: string; stylish) =
   stdout.setCursorPos(gridio.tlx, gridio.nextWriteStartY)
   writeStylish(text, stylish)
   gridio.nextWriteStartY += 1
   if unlikely(gridio.nextWriteStartY >= gridio.bry):
     gridio.nextWriteStartY = gridio.tly
+  gridio.clearLine(gridio.nextWriteStartY)
+
+proc clear*(gridio) =
+  if gridio.writeStyle == wsOverwrite:
+    for y in gridio.tly .. gridio.prevWriteEndY:
+      gridio.clearLine(y)
+    gridio.prevWriteEndY = gridio.tly
+  else:
+    for y in gridio.tly .. gridio.bry - 1:  # TODO: This ``- 1`` should not be needed
+      gridio.clearLine(y)
+    if gridio.writeStyle == wsRadar:
+      gridio.nextWriteStartY = gridio.tly
 
 proc writeHelper(gridio; texts: seq[string]; stylish) =
   if gridio.writeStyle == wsRadar:
     for line in texts:
       gridio.writeHelperRadar(line, stylish)
   else:
-    # TODO: Move to a .clear()
+    if gridio.writeStyle == wsOverwrite:
+      gridio.clear()
     for i, line in texts:
       stdout.setCursorPos(gridio.tlx, gridio.tly + i)
       writeStylish(line, stylish)
@@ -250,10 +267,6 @@ proc writeHelper(gridio; texts: seq[string]; stylish) =
       gridio.prevWriteEndY = gridio.tly + texts.len
 
 proc write*(gridio; text: string; stylish = styleless) =
-  if gridio.writeStyle == wsOverwrite:
-    for y in gridio.tly .. gridio.prevWriteEndY:
-      stdout.setCursorPos(gridio.tlx, y)
-      stdout.write(" " * gridio.width)
   gridio.writeHelper(text.wordWrap(gridio.width), stylish)
   stdout.flushFile
 

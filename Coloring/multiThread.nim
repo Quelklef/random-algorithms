@@ -96,22 +96,39 @@ let root = rows(@[titleRow, columnDisplaysWrap])
 root.fix()
 root.drawOutline(stylish({styleDim}))
 titleRow.write(
-  "Running trials for (C = $#; mask = $#). Press enter to exit.".center(titleRow.width) %
-    [$C, $mask], stylish({styleBright}))
+  ("Running trials for (C = $#; mask = $#). Press enter to exit." %
+    [$C, $mask]).center(titleRow.width),
+  stylish({styleBright}),
+)
 
-var displayChannel: Channel[tuple[i: int, child_i: int, msg: string, stylish: Stylish]]
+type DisplayActionKind = enum
+  dakClearColumn
+  dakWriteMessage
+type DisplayAction = object
+  i: int
+  case kind: DisplayActionKind
+  of dakClearColumn:
+    discard
+  of dakWriteMessage:
+    child_i: int
+    msg: string
+    stylish: Stylish
+
+var displayChannel: Channel[DisplayAction]
 displayChannel.open()
 
 proc displayN(i: int; N: int, stylish = styleless) =
-  displayChannel.send((i: i, child_i: 0, msg: " N = " & $N, stylish: stylish))
+  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 0, msg: " N = " & $N, stylish: stylish))
 proc displayTrialCount(i: int; count: int, stylish = styleless) =
-  displayChannel.send((i: i, child_i: 1, msg: " $# / $# trials ($#%)" % [
+  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 1, msg: " $# / $# trials ($#%)" % [
     count.`$`.align(($trialCount).len),
     $trialCount,
     int(count / trialCount * 100).`$`.align(3),
   ], stylish: stylish))
 proc displayTrial(i: int; trial: string, stylish = styleless) =
-  displayChannel.send((i: i, child_i: 2, msg: trial, stylish: stylish))
+  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 2, msg: trial, stylish: stylish))
+proc clearColumn(i: int) =
+  displayChannel.send(DisplayAction(kind: dakClearColumn, i: i))
 
 let columnWidth = columnDisplays[0].width
 proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
@@ -129,6 +146,7 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let file = open(filename, mode = fmRead)
       defer: close(file)
 
+      clearColumn(i)
       displayN(i, N)
       displayTrialCount(i, existingTrials)
       for line in file.lines:
@@ -162,7 +180,11 @@ proc main() =
     quit()
 
   while true:
-    let (i, child_i, msg, style) = displayChannel.recv
-    columnDisplays[i].children[child_i].write(msg, style)
+    let displayAction = displayChannel.recv
+    case displayAction.kind
+    of dakClearColumn:
+      columnDisplays[displayAction.i].children[2].clear()
+    of dakWriteMessage:
+      columnDisplays[displayAction.i].children[displayAction.child_i].write(displayAction.msg, displayAction.stylish)
 
 main()
