@@ -3,8 +3,6 @@ from colors import nil
 import options
 import sets
 
-# TODO: Rename this module to 'stylish.nim'
-
 # This entire module is mindless glue
 # Please kill me
 

@@ -4,7 +4,7 @@ import sequtils
 import terminal
 import tables
 
-import unifiedStyle
+import stylish
 from util import sum, `*`, `{}`
 
 export terminal.Style

@@ -12,7 +12,7 @@ import find
 import fileio
 from ../util import `*`, times, `{}`
 import ../gridio
-import ../unifiedStyle
+import ../stylish
 
 #[
 3 command-line params:
@@ -67,10 +67,9 @@ func reprInXChars(val: float, n: int, suffix: string): (string, Stylish) =
   # do NOT make this const, it breaks stylish() for some reason
   let prefixes = [
     (""  , 1.0                , stylish(fgWhite)),
-    ("h" , 100.0              , stylish(fgCyan)),
     ("k" , 1_000.0            , stylish(fgGreen)),
     ("M" , 1_000_000.0        , stylish(fgMagenta)),
-    ("G" , 1_000_000_000.0    , stylish(fgCyan, {styleBright})),
+    ("G" , 1_000_000_000.0    , stylish(fgCyan)),
     ("T" , 1_000_000_000_000.0, stylish(fgGreen, {styleBright})),
     ("_" , Inf                , stylish()),
   ]
