@@ -4,6 +4,8 @@ import sequtils
 import terminal
 import tables
 
+export terminal.Style
+
 from util import sum, `*`, `{}`
 
 const
@@ -97,9 +99,9 @@ type Gridio = ref object
   # to their orientation (i.e. horizontal for oHorizontal and vertical for
   # oVertical)
   size: Option[int]
-  children: seq[Gridio]
+  children*: seq[Gridio]
 
-  writeStyle: WriteStyle
+  writeStyle*: WriteStyle
 
   # Calculated attributes
   tlx, tly, brx, bry: int
@@ -268,30 +270,26 @@ proc write*(gridio; text: string, style = noStyle) =
       stdout.write(" " * gridio.width)
   gridio.writeHelper(text.wordWrap(gridio.width), style)
 
-func gridio(childOrientation: Orientation; size: Option[int]): Gridio =
-  return Gridio(
-    childOrientation: childOrientation,
-    size: size,
-    children: @[]
-  )
+template initImpl(name, orientation) =
+  func name*(size: int, children: seq[Gridio] = @[]): Gridio =
+    return Gridio(
+      childOrientation: orientation,
+      size: some(size),
+      children: children,
+    )
+  func name*(children: seq[Gridio] = @[]): Gridio =
+    return Gridio(
+      childOrientation: orientation,
+      size: none(int),
+      children: children,
+    )
 
-func rows*(size: int): Gridio =
-  return gridio(oHorizontal, some(size))
-func rows*(): Gridio =
-  return gridio(oHorizontal, none(int))
-
-func cols*(size: int): Gridio =
-  return gridio(oVertical, some(size))
-func cols*(): Gridio =
-  return gridio(oVertical, none(int))
-
+initImpl(rows, oHorizontal)
+initImpl(cols, oVertical)
 # For boxes which will be used to display text and thus
 # don't care about rows/cols because they will have
 # no children, arbitrarily choose that they're rows.
-func box*(size: int): Gridio =
-  return rows(size)
-func box*(): Gridio =
-  return rows()
+initImpl(box, oHorizontal)
 
 # Access to calculated attributes
 func topLeft*(gridio): (int, int) =
