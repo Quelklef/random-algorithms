@@ -10,7 +10,7 @@ import terminal
 import coloring
 import find
 import fileio
-from ../util import `*`, times
+from ../util import `*`, times, `{}`
 import ../gridio
 import ../unifiedStyle
 
@@ -63,24 +63,23 @@ func timeFormat(t: float): string =
   if mins > 0: result = mins.`$`.align(2, ' ') & "m " & $result
   if hurs > 0: result = hurs.`$`.align(2, ' ') & "h " & $result
 
-func reprInXChars(val: float, n: int, suffix: string): string =
-  const prefixes = [
-    (""  , 1.0                ),
-    ("h" , 100.0              ),
-    ("k" , 1_000.0            ),
-    ("M" , 1_000_000.0        ),
-    ("G" , 1_000_000_000.0    ),
-    ("T" , 1_000_000_000_000.0),
-    ("_" , Inf                ),
+func reprInXChars(val: float, n: int, suffix: string): (string, Stylish) =
+  # do NOT make this const, it breaks stylish() for some reason
+  let prefixes = [
+    (""  , 1.0                , stylish(fgWhite)),
+    ("h" , 100.0              , stylish(fgCyan)),
+    ("k" , 1_000.0            , stylish(fgGreen)),
+    ("M" , 1_000_000.0        , stylish(fgMagenta)),
+    ("G" , 1_000_000_000.0    , stylish(fgCyan, {styleBright})),
+    ("T" , 1_000_000_000_000.0, stylish(fgGreen, {styleBright})),
+    ("_" , Inf                , stylish()),
   ]
 
   for i, prefix in prefixes:
-    let (pref, amt) = prefix
+    let (pref, amt, stylish) = prefix
     if prefixes[i + 1][1] > val:
-      result = (val / amt).formatFloat(ffDecimal, precision = 2)
-      if result.len > (n - pref.len - suffix.len):
-        result = result[0 ..< (n - pref.len - suffix.len)]
-      return align(result & pref & suffix, n)
+      var res = (val / amt).formatFloat(ffDecimal, precision = 2){0 ..< (n - pref.len - suffix.len)}
+      return (align(res & pref & suffix, n), stylish)
 
 let titleRow = box(1)
 var columnDisplays: array[threadCount, Gridio]
@@ -101,9 +100,11 @@ titleRow.write(
   stylish({styleBright}),
 )
 
+# TODO: This whole 'DisplayAction' business is really ugly
 type DisplayActionKind = enum
   dakClearColumn
   dakWriteMessage
+  dakOverlay
 type DisplayAction = object
   i: int
   case kind: DisplayActionKind
@@ -113,6 +114,10 @@ type DisplayAction = object
     child_i: int
     msg: string
     stylish: Stylish
+  of dakOverlay:
+    text: string
+    xOffset: int
+    overlayStylish: Stylish
 
 var displayChannel: Channel[DisplayAction]
 displayChannel.open()
@@ -129,6 +134,8 @@ proc displayTrial(i: int; trial: string, stylish = styleless) =
   displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 2, msg: trial, stylish: stylish))
 proc clearColumn(i: int) =
   displayChannel.send(DisplayAction(kind: dakClearColumn, i: i))
+proc overlay(i: int; text: string, xOffset: int, stylish: Stylish) =
+  displayChannel.send(DisplayAction(kind: dakOverlay, i: i, text: text, xOffset: xOffset, overlayStylish: stylish))
 
 let columnWidth = columnDisplays[0].width
 proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
@@ -150,7 +157,8 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       displayN(i, N)
       displayTrialCount(i, existingTrials)
       for line in file.lines:
-        displayTrial(i, line.string.parseInt.float.reprInXChars(columnWidth - 1, "f"))
+        let (trialStr, stylish) = line.string.parseInt.float.reprInXChars(columnWidth - 1, "f")
+        displayTrial(i, trialStr, stylish)
 
     let file = open(filename, mode = fmAppend)
     defer: close(file)
@@ -162,11 +170,9 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
 
       displayTrialCount(i, t)
       let halfWidth = (columnWidth - 2 - 1) div 2
-      let trialStr = " $# $# " % [
-        timeFormat(duration).align(halfWidth),
-        flips.float.reprInXChars(halfWidth - 1, "f"),
-      ]
-      displayTrial(i, trialStr)
+      displayTrial(i, timeFormat(duration).align(halfWidth))
+      let (flipsStr, flipsStylish) = flips.float.reprInXchars(halfWidth - 1, "f")
+      overlay(i, flipsStr, halfWidth + 1, flipsStylish)
 
       file.writeRow(flips)
 
@@ -180,11 +186,13 @@ proc main() =
     quit()
 
   while true:
-    let displayAction = displayChannel.recv
-    case displayAction.kind
+    let action = displayChannel.recv
+    case action.kind
     of dakClearColumn:
-      columnDisplays[displayAction.i].children[2].clear()
+      columnDisplays[action.i].children[2].clear()
     of dakWriteMessage:
-      columnDisplays[displayAction.i].children[displayAction.child_i].write(displayAction.msg, displayAction.stylish)
+      columnDisplays[action.i].children[action.child_i].write(action.msg, action.stylish)
+    of dakOverlay:
+      columnDisplays[action.i].children[2].overlay(action.text, action.xOffset, action.overlayStylish)
 
 main()

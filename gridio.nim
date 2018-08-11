@@ -264,7 +264,8 @@ proc overlay*(gridio; text: string; xOffset: int = 0; stylish = styleless) =
   ## Writes over the previous line without advancing
   ## Line must not overflow
   assert(gridio.writeStyle == wsRadar)
-  stdout.setCursorPos(gridio.tlx, gridio.prevWriteEndY)
+  stdout.setCursorPos(gridio.tlx + xOffset, gridio.prevWriteEndY)
+  #writeStylish(text, stylish)
   writeStylish(text, stylish)
   stdout.flushFile
 

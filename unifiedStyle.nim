@@ -3,6 +3,8 @@ from colors import nil
 import options
 import sets
 
+# TODO: Rename this module to 'stylish.nim'
+
 # This entire module is mindless glue
 # Please kill me
 
@@ -16,26 +18,25 @@ In order to make name conflicts easier, the main type in this module is
 called 'Stylish'
 ]##
 
+type UnifiedColorKind = enum
+  uckTrueColor
+  uckBackground
+  uckForeground
 type UnifiedColor = object
-  case trueColor: bool
-  of true:
+  case kind: UnifiedColorKind
+  of uckTrueColor:
     colVal: colors.Color
-  of false:
-    # Since ``terminal`` defines the same colors for foreground
-    # and background, we may encapsulate both by use of only one
-    termVal: terminal.ForegroundColor
-
-func toBackgroundColor*(fg: terminal.ForegroundColor): terminal.BackgroundColor =
-  return terminal.BackgroundColor(int(fg) - 10)
-func toForegroundColor*(bg: terminal.BackgroundColor): terminal.ForegroundColor =
-  return terminal.ForegroundColor(int(bg) + 10)
+  of uckForeground:
+    fgVal: terminal.ForegroundColor
+  of uckBackground:
+    bgVal: terminal.BackgroundColor
 
 func ucolor(cv: colors.Color): UnifiedColor =
-  return UnifiedColor(trueColor: true, colVal: cv)
-func ucolor(tv: terminal.ForegroundColor): UnifiedColor =
-  return UnifiedColor(trueColor: false, termVal: tv)
-func ucolor(tv: terminal.BackgroundColor): UnifiedColor =
-  return UnifiedColor(trueColor: false, termVal: tv.toForegroundColor)
+  return UnifiedColor(kind: uckTrueColor, colVal: cv)
+func ucolor(fg: terminal.ForegroundColor): UnifiedColor =
+  return UnifiedColor(kind: uckForeGround, fgVal: fg)
+func ucolor(bg: terminal.BackgroundColor): UnifiedColor =
+  return UnifiedColor(kind: uckBackground, bgVal: bg)
 
 type Stylish* = object
   textStyles: set[terminal.Style]
@@ -63,19 +64,23 @@ let styleless* = stylish()
 proc writeStylish*(text: string, stylish: Stylish) =
   if stylish.foreground.isSome:
     let ucolor = stylish.foreground.unsafeGet
-    case ucolor.trueColor
-    of true:
+    case ucolor.kind
+    of uckTrueColor:
       terminal.setForegroundColor(stdout, ucolor.colVal)
-    of false:
-      terminal.setForegroundColor(stdout, ucolor.termVal)
+    of uckForeground:
+      terminal.setForegroundColor(stdout, ucolor.fgVal)
+    of uckBackground:
+      assert(false)
 
   if stylish.background.isSome:
     let ucolor = stylish.background.unsafeGet
-    case ucolor.trueColor
-    of true:
+    case ucolor.kind
+    of uckTrueColor:
       terminal.setBackgroundColor(stdout, ucolor.colVal)
-    of false:
-      terminal.setBackgroundColor(stdout, ucolor.termVal.toBackgroundColor)
+    of uckForeground:
+      assert(false)
+    of uckBackground:
+      terminal.setBackgroundColor(stdout, ucolor.bgVal)
 
   terminal.writeStyled(text, stylish.textStyles)
   terminal.resetAttributes()
