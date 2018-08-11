@@ -193,7 +193,7 @@ proc writeBox(mat: seq[seq[bool]]; stylish) =
   for x in 0 ..< mat.len:
     for y in 0 ..< mat[x].len:
       stdout.setCursorPos(x, y)
-      writeStyled(
+      writeStylish(
         showCell(
                          mat{x, y - 1},
           mat{x - 1, y}, mat{x, y    }, mat{x + 1, y},
@@ -232,7 +232,7 @@ func wordWrap(text: string; width: int): seq[string] =
 
 proc writeHelperRadar(gridio; text: string; stylish) =
   stdout.setCursorPos(gridio.tlx, gridio.nextWriteStartY)
-  writeStyled(text, stylish)
+  writeStylish(text, stylish)
   gridio.nextWriteStartY += 1
   if unlikely(gridio.nextWriteStartY >= gridio.bry):
     gridio.nextWriteStartY = gridio.tly
@@ -245,7 +245,7 @@ proc writeHelper(gridio; texts: seq[string]; stylish) =
     # TODO: Move to a .clear()
     for i, line in texts:
       stdout.setCursorPos(gridio.tlx, gridio.tly + i)
-      writeStyled(line, stylish)
+      writeStylish(line, stylish)
     if gridio.writeStyle == wsOverwrite:
       gridio.prevWriteEndY = gridio.tly + texts.len
 
