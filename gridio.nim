@@ -28,6 +28,7 @@ when defined(windows):
     (false, true , false, false): "-",
     (false, false, true , false): "|",
     (false, false, false, true ): "-",
+    (false, false, false, false): ".",
   }.toTable
 else:
   const gfx_table = {
@@ -47,6 +48,7 @@ else:
     (false, true , false, false): "╶",
     (false, false, true , false): "╷",
     (false, false, false, true ): "╴",
+    (false, false, false, false): "·",
   }.toTable
 
 # tlx/tly/brx/bry: (top|bottom)-(left|right) (x|y)
