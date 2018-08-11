@@ -8,24 +8,46 @@ from util import sum, `*`, `{}`
 
 export terminal.Style
 
-const gfx_table = {
-  # (north, east, south, west) -> string
-  (true , true , true , true ): "┼",
-  (false, true , true , true ): "┬",
-  (true , false, true , true ): "┤",
-  (true , true , false, true ): "┴",
-  (true , true , true , false): "├",
-  (true , true , false, false): "└",
-  (true , false, true , false): "│",
-  (true , false, false, true ): "┘",
-  (false, true , true , false): "┌",
-  (false, true , false, true ): "─",
-  (false, false, true , true ): "┐",
-  (true , false, false, false): "╵",
-  (false, true , false, false): "╶",
-  (false, false, true , false): "╷",
-  (false, false, false, true ): "╴",
-}.toTable
+when defined(windows):
+  # Windows commandlines seem to have poor utf8 support so fallback
+  # to a lamer character set
+  const gfx_table = {
+    # (north, east, south, west) -> string
+    (true , true , true , true ): "+",
+    (false, true , true , true ): "+",
+    (true , false, true , true ): "+",
+    (true , true , false, true ): "+",
+    (true , true , true , false): "+",
+    (true , true , false, false): "+",
+    (true , false, true , false): "|",
+    (true , false, false, true ): "+",
+    (false, true , true , false): "+",
+    (false, true , false, true ): "-",
+    (false, false, true , true ): "+",
+    (true , false, false, false): "|",
+    (false, true , false, false): "-",
+    (false, false, true , false): "|",
+    (false, false, false, true ): "-",
+  }.toTable
+else:
+  const gfx_table = {
+    # (north, east, south, west) -> string
+    (true , true , true , true ): "┼",
+    (false, true , true , true ): "┬",
+    (true , false, true , true ): "┤",
+    (true , true , false, true ): "┴",
+    (true , true , true , false): "├",
+    (true , true , false, false): "└",
+    (true , false, true , false): "│",
+    (true , false, false, true ): "┘",
+    (false, true , true , false): "┌",
+    (false, true , false, true ): "─",
+    (false, false, true , true ): "┐",
+    (true , false, false, false): "╵",
+    (false, true , false, false): "╶",
+    (false, false, true , false): "╷",
+    (false, false, false, true ): "╴",
+  }.toTable
 
 # tlx/tly/brx/bry: (top|bottom)-(left|right) (x|y)
 
