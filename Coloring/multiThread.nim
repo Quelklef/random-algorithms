@@ -6,12 +6,13 @@ import sugar
 import os
 import times
 import terminal
-import locks
 
 import coloring
 import find
 import fileio
 from ../util import `*`, times
+import ../gridio
+import ../unifiedStyle
 
 #[
 3 command-line params:
@@ -57,119 +58,66 @@ func timeFormat(t: float): string =
 
   let mils = rest
 
-  result              = "\e[36m" & mils.`$`.align(3, ' ') & "ms"
-  if secs > 0: result = "\e[32m" & secs.`$`.align(2, ' ') & "s " & $result
+  result              = mils.`$`.align(3, ' ') & "ms"
+  if secs > 0: result = secs.`$`.align(2, ' ') & "s " & $result
   else:        result = "    " & $result
-  if mins > 0: result = "\e[35m" & mins.`$`.align(2, ' ') & "m " & $result
+  if mins > 0: result = mins.`$`.align(2, ' ') & "m " & $result
   else:        result = "    " & $result
-  if hurs > 0: result = "\e[31m" & hurs.`$`.align(2, ' ') & "h " & $result
+  if hurs > 0: result = hurs.`$`.align(2, ' ') & "h " & $result
   else:        result = "    " & $result
-  result &= "\e[0m"
+  result &= ""
 
 func reprInXChars(val: float, n: int, suffix: string): string =
   const prefixes = [
-    (""  , 1.0                , ""),
-    ("h" , 100.0              , "\e[36m"),
-    ("k" , 1_000.0            , "\e[32m"),
-    ("M" , 1_000_000.0        , "\e[35m"),
-    ("G" , 1_000_000_000.0    , "\e[1m\e[36m"),
-    ("T" , 1_000_000_000_000.0, "\e[1m\e[32m"),
-    ("_" , Inf                , ""),
+    (""  , 1.0                ),
+    ("h" , 100.0              ),
+    ("k" , 1_000.0            ),
+    ("M" , 1_000_000.0        ),
+    ("G" , 1_000_000_000.0    ),
+    ("T" , 1_000_000_000_000.0),
+    ("_" , Inf                ),
   ]
 
   for i, prefix in prefixes:
-    let (pref, amt, color) = prefix
+    let (pref, amt) = prefix
     if prefixes[i + 1][1] > val:
       result = (val / amt).formatFloat(ffDecimal, precision = 2)
       if result.len > (n - pref.len - suffix.len):
         result = result[0 ..< (n - pref.len - suffix.len)]
-      return color & align(result & pref & suffix, n) & "\e[0m"
+      return align(result & pref & suffix, n)
 
-var tLock: Lock
-initLock(tLock)
-# termWidth and termHeight must be constants for the threads to work properly
-# Besides, some of the formatting is hardcoded, so it won't work with other sizes. lol.
-const termWidth = 271
-const termHeight = 68 - 1
-const topPad = 7  # How much the top rows take up
-const blockWidth = (termWidth - 1) div threadCount - 1
-const tableWidth = threadCount * (blockWidth + 1) + 1
-const tableLeftMargin = int((termWidth - tableWidth) / 2)
-const tableLeftMarginString = " " * tableLeftMargin
-template writeShifted(f: File, s: string) = f.write(tableLeftMarginString & s)
-template gotoShifted(f: File, x, y: int) = f.setCursorPos(x + tableLeftMargin, y)
-const blankBlock = " " * blockWidth
-const feedRowCount = termHeight - topPad - 1
-var prevYs: array[threadCount, int]
-template calcX(i: int): int = 1 + (blockWidth + 1) * i
-let trialCountStrLen = trialCount.`$`.len
-proc trialHeader(i, trialNumber: int) =
-  let x = calcX(i)
-  # We need to clear the block in the edge case that a previous trial had
-  # a wider header, for instance if the program was run with a goal of 1000
-  # trials and then rerun later with a goal of 50.
-  # The header would be '1000 / 50 trials (500%)' which is larger than we
-  # need or want for `XX / 50 trials (XXX%)`.
-  stdout.gotoShifted(x, 5)
-  stdout.write(blankBlock)
-  stdout.gotoShifted(x + 1, 5)
-  stdout.write("$# / $# trials ($#%)" % [
-    trialNumber.`$`.align(trialCountStrLen),
+let titleRow = box(1)
+var columnDisplays: array[threadCount, Gridio]
+for i in 0 ..< threadCount:
+  let N_disp = box(1)
+  let summary = box(1)
+  let radar = box()
+  radar.writeStyle = wsRadar
+  let column = rows(@[N_disp, summary, radar])
+  columnDisplays[i] = column
+let columnDisplaysWrap = cols(@columnDisplays)
+let root = rows(@[titleRow, columnDisplaysWrap])
+root.fix()
+root.drawOutline(stylish({styleDim}))
+titleRow.write(
+  "Running trials for (C = $#; mask = $#). Press enter to exit.".center(titleRow.width) %
+    [$C, $mask], stylish({styleBright}))
+
+var displayChannel: Channel[tuple[i: int, child_i: int, msg: string, stylish: Stylish]]
+displayChannel.open()
+
+proc displayN(i: int; N: int, stylish = styleless) =
+  displayChannel.send((i: i, child_i: 0, msg: " N = " & $N, stylish: stylish))
+proc displayTrialCount(i: int; count: int, stylish = styleless) =
+  displayChannel.send((i: i, child_i: 1, msg: "$# / $# trials ($#%)" % [
+    count.`$`.align(($trialCount).len),
     $trialCount,
-    int(100 * trialNumber / trialCount).`$`.align(3)
-  ])
-  stdout.flushFile
-proc newN(i, N, existingTrials: int) =
-  trialHeader(i, existingTrials)
-  let x = calcX(i)
-  prevYs[i] = 0
-  stdout.gotoShifted(x, 3)
-  stdout.write(" N = " & $N)
-  for i in 0 ..< feedRowCount:
-    stdout.gotoShifted(x, topPad + i)
-    stdout.write(blankBlock)
-  stdout.flushFile
-proc displayTrial_raw(i: int, val: string) =
-  let x = calcX(i)
-  let curY = prevYs[i]
-  let newY = (curY + 1) mod feedRowCount
-  prevYs[i] = newY
-  stdout.gotoShifted(x, newY + topPad)
-  stdout.write(blankBlock)
-  stdout.gotoShifted(x + 1, curY + topPad)
-  stdout.write(val)
-  stdout.flushFile
-proc reportRecordedTrial(i: int, flips: int) =
-  displayTrial_raw(i, "$# $#" % [
-    " " * 17,
-    flips.float.reprInXChars(12, "f"),
-  ])
-proc reportTrial(i, trialNumber: int, duration: float, flips: int) =
-  trialHeader(i, trialNumber)
-  displayTrial_raw(i, "$# $#" % [
-    timeFormat(duration),
-    flips.float.reprInXChars(12, "f")
-  ])
+    int(count / trialCount * 100).`$`.align(3),
+  ], stylish: stylish))
+proc displayTrial(i: int; trial: string, stylish = styleless) =
+  displayChannel.send((i: i, child_i: 2, msg: trial, stylish: stylish))
 
-let rule      = "├" & ("─" * blockWidth & "┼") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
-let rule2     = "├" & ("─" * blockWidth & "┬") * (threadCount - 1) & "─" * blockWidth & "┤" & "\n"
-let dashesTop = "┌" & "─" * (tableWidth - 2) & "┐" & "\n"
-let dashesBot = "└" & ("─" * blockWidth & "┴") * (threadCount - 1) & "─" * blockWidth & "┘" & "\n"
-let title     = "│\e[1m" & ("Running trials for C = $# mask = $#. Press enter to quit." % [$C, $mask]).center(tableWidth - 2) & "\e[0m\e[2m│" & "\n"
-let blankRow  = "│" & (" " * blockWidth & "│") * threadCount & "\n"
-stdout.write("\e[2m")
-stdout.writeShifted(dashesTop)
-stdout.writeShifted(title)
-stdout.writeShifted(rule2)
-stdout.writeShifted(blankRow)
-stdout.writeShifted(rule)
-stdout.writeShifted(blankRow)
-stdout.writeShifted(rule)
-feedRowCount.times: stdout.writeShifted(blankRow)
-stdout.writeShifted(dashesBot)
-stdout.write("\e[0m")
-stdout.flushFile
-
+let columnWidth = columnDisplays[0].width
 proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
   let (i, mask) = values
   while true:
@@ -185,21 +133,26 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let file = open(filename, mode = fmRead)
       defer: close(file)
 
-      withLock(tLock):
-        newN(i, N, existingTrials)
-        for line in file.lines:
-          reportRecordedTrial(i, line.string.parseInt)
+      displayN(i, N)
+      displayTrialCount(i, existingTrials)
+      for line in file.lines:
+        displayTrial(i, line.string.parseInt.float.reprInXChars(columnWidth - 1, "f"))
 
     let file = open(filename, mode = fmAppend)
     defer: close(file)
 
-    for t in existingTrials ..< trialCount:
+    for t in existingTrials + 1 .. trialCount:
       let t0 = epochTime()
       let (flips, _) = find_noMMP_coloring(C, N, mask)
       let duration = epochTime() - t0
 
-      withLock(tLock):
-        reportTrial(i, t + 1, duration, flips)
+      displayTrialCount(i, t)
+      let halfWidth = (columnWidth - 1) div 2
+      let trialStr = "$# $#" % [
+        timeFormat(duration).align(halfWidth),
+        flips.float.reprInXChars(halfWidth - 1, "f"),
+      ]
+      displayTrial(i, trialStr)
 
       file.writeRow(flips)
 
@@ -209,8 +162,11 @@ proc main() =
 
   var quitThread: Thread[void]
   quitThread.createThread do:
-    discard readLine(stdin)
+    discard readline(stdin)
+    quit()
 
-  joinThread(quitThread)
+  while true:
+    let (i, child_i, msg, style) = displayChannel.recv
+    columnDisplays[i].children[child_i].write(msg, style)
 
 main()

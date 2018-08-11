@@ -4,6 +4,7 @@ import sequtils
 import terminal
 import tables
 
+import unifiedStyle
 from util import sum, `*`, `{}`
 
 export terminal.Style
@@ -53,8 +54,6 @@ else:
 
 # tlx/tly/brx/bry: (top|bottom)-(left|right) (x|y)
 
-const noStyle: set[Style] = {}
-
 type Orientation* = enum
   oVertical
   oHorizontal
@@ -86,7 +85,7 @@ type Gridio* = ref object
   writeStyle*: WriteStyle
 
   # Calculated attributes
-  tlx, tly, brx, bry: int
+  tlx*, tly*, brx*, bry*: int
 
   # Conditional attributes; only used for some WriteStyles
   # Used by wsOverwrite
@@ -101,11 +100,13 @@ using
   ori: Orientation
   availSize: int
   tlx, tly, brx, bry: int
-  style: set[Style]
+  style: Stylish
 
 func width*(gridio): int =
+  ## .fix() must be called for this to work properly
   return gridio.brx - gridio.tlx + 1
 func height*(gridio): int =
+  ## .fix() must be called for this to work properly
   return gridio.bry - gridio.tly + 1
 
 func fix(gridio; ori; tlx; tly; brx; bry) =
@@ -201,13 +202,14 @@ proc writeBox(mat: seq[seq[bool]]; style) =
         style,
       )
 
-proc drawOutline*(gridio; style = noStyle) =
+proc drawOutline*(gridio; style = styleless) =
   ## Draw an outline of the gridio and its descendants to stdio.
   ## Call fix() first.
   # +2 for borders!
   var mat = newSeqWith(gridio.width + 2, newSeqWith(gridio.height + 2, false))
   gridio.calculateOutline(mat)
   writeBox(mat, style)
+  stdout.flushFile
 
 proc fix*(gridio) =
   ## Calculate the actual locations and sizes of the gridio and all
@@ -228,14 +230,14 @@ func wordWrap(text: string; width: int): seq[string] =
     result.add(text{i ..< i + width})
     i += width
 
-proc writeHelperRadar(gridio; text: string, style) =
+proc writeHelperRadar(gridio; text: string; style) =
   stdout.setCursorPos(gridio.tlx, gridio.nextWriteStartY)
   writeStyled(text, style)
   gridio.nextWriteStartY += 1
   if unlikely(gridio.nextWriteStartY > gridio.bry):
     gridio.nextWriteStartY = gridio.tly
 
-proc writeHelper(gridio; texts: seq[string], style) =
+proc writeHelper(gridio; texts: seq[string]; style) =
   if gridio.writeStyle == wsRadar:
     for line in texts:
       gridio.writeHelperRadar(line, style)
@@ -246,14 +248,15 @@ proc writeHelper(gridio; texts: seq[string], style) =
     if gridio.writeStyle == wsOverwrite:
       gridio.prevWriteEndY = gridio.tly + texts.len
 
-proc write*(gridio; text: string, style = noStyle) =
+proc write*(gridio; text: string; style = styleless) =
   if gridio.writeStyle == wsOverwrite:
     for y in gridio.tly .. gridio.prevWriteEndY:
       stdout.setCursorPos(gridio.tlx, y)
       stdout.write(" " * gridio.width)
   gridio.writeHelper(text.wordWrap(gridio.width), style)
+  stdout.flushFile
 
-template initImpl(name, orientation) =
+template initImpl(name; orientation) =
   func name*(size: int, children: seq[Gridio] = @[]): Gridio =
     return Gridio(
       childOrientation: orientation,
@@ -273,12 +276,6 @@ initImpl(cols, oVertical)
 # don't care about rows/cols because they will have
 # no children, arbitrarily choose that they're rows.
 initImpl(box, oHorizontal)
-
-# Access to calculated attributes
-func topLeft*(gridio): (int, int) =
-  return (gridio.tlx, gridio.tly)
-func bottomRight*(gridio): (int, int) =
-  return (gridio.brx, gridio.bry)
 
 proc placeCursorAfter*(gridio) =
   ## May need to be called after all drawing is done
