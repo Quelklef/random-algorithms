@@ -2,6 +2,7 @@ import options
 import os
 import random
 import strutils
+import tables
 
 # TODO: `func`
 proc optParam*(n: int): Option[TaintedString] =
@@ -52,3 +53,10 @@ func `{}`*[A, B](s: string, sl: HSlice[A, B]): string =
     let hi = sl.b
 
   return s[max(lo, 0) .. min(hi, s.len - 1)]
+
+func `|`*[K, V](t0, t1: Table[K, V]): Table[K, V] =
+  result = initTable[K, V]()
+  for key, val in t0.pairs:
+    result[key] = val
+  for key, val in t1.pairs:
+    result[key] = val

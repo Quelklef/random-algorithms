@@ -44,41 +44,41 @@ proc numLines(f: string): int =
 proc createFile(f: string) =
   close(open(f, mode = fmWrite))
 
-func timeFormat(t: float): string =
+func timeFormat(t: float, width: int): StylishString =
   var rest = int(t * 1000)
-
   let hurs = rest div 3600000
   rest = rest mod 3600000
-
   let mins = rest div 60000
   rest = rest mod 60000
-
   let secs = rest div 1000
   rest = rest mod 1000
-
   let mils = rest
 
-  result              = mils.`$`.align(3, ' ') & "ms"
-  if secs > 0: result = secs.`$`.align(2, ' ') & "s " & $result
-  if mins > 0: result = mins.`$`.align(2, ' ') & "m " & $result
-  if hurs > 0: result = hurs.`$`.align(2, ' ') & "h " & $result
+  result              = (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))
+  if secs > 0: result = (secs.`$`.align(2) & "s ").withStyle(stylish(fgGreen              )) & result
+  else: result = "  ".initStylishString & result
+  if mins > 0: result = (mins.`$`.align(2) & "m ").withStyle(stylish(fgMagenta            )) & result
+  else: result = "  ".initStylishString & result
+  if hurs > 0: result = (hurs.`$`.align(2) & "h ").withStyle(stylish(fgCyan, {styleBright})) & result
+  else: result = "  ".initStylishString & result
+  result = initStylishString(" " * (width - result.len)) & result
 
-func reprInXChars(val: float, n: int, suffix: string): (string, Stylish) =
+func reprInXChars(val: float, n: int, suffix: string): StylishString =
   # do NOT make this const, it breaks stylish() for some reason
   let prefixes = [
-    (""  , 1.0                , stylish(fgWhite)),
-    ("k" , 1_000.0            , stylish(fgGreen)),
-    ("M" , 1_000_000.0        , stylish(fgMagenta)),
-    ("G" , 1_000_000_000.0    , stylish(fgCyan)),
-    ("T" , 1_000_000_000_000.0, stylish(fgGreen, {styleBright})),
-    ("_" , Inf                , stylish()),
+    (""  , 1.0                , stylish(fgWhite              )),
+    ("k" , 1_000.0            , stylish(fgCyan               )),
+    ("M" , 1_000_000.0        , stylish(fgGreen              )),
+    ("G" , 1_000_000_000.0    , stylish(fgMagenta            )),
+    ("T" , 1_000_000_000_000.0, stylish(fgCyan, {styleBright})),
+    ("_" , Inf                , stylish(                     )),
   ]
 
   for i, prefix in prefixes:
     let (pref, amt, stylish) = prefix
     if prefixes[i + 1][1] > val:
       var res = (val / amt).formatFloat(ffDecimal, precision = 2){0 ..< (n - pref.len - suffix.len)}
-      return (align(res & pref & suffix, n), stylish)
+      return align(res & pref & suffix, n).withStyle(stylish)
 
 let titleRow = box(1)
 var columnDisplays: array[threadCount, Gridio]
@@ -95,8 +95,7 @@ root.fix()
 root.drawOutline(stylish({styleDim}))
 titleRow.write(
   ("Running trials for (C = $#; mask = $#). Press enter to exit." %
-    [$C, $mask]).center(titleRow.width),
-  stylish({styleBright}),
+    [$C, $mask]).center(titleRow.width).withStyle(stylish({styleBright})),
 )
 
 # TODO: This whole 'DisplayAction' business is really ugly
@@ -110,31 +109,30 @@ type DisplayAction = object
   of dakClearColumn:
     discard
   of dakWriteMessage:
-    child_i: int
-    msg: string
-    stylish: Stylish
+    write_child_i: int
+    write_str: StylishString
   of dakOverlay:
-    text: string
-    xOffset: int
-    overlayStylish: Stylish
+    overlay_child_i: int
+    overlay_str: StylishString
+    overlay_xOffset: int
 
 var displayChannel: Channel[DisplayAction]
 displayChannel.open()
 
 proc displayN(i: int; N: int, stylish = styleless) =
-  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 0, msg: " N = " & $N, stylish: stylish))
-proc displayTrialCount(i: int; count: int, stylish = styleless) =
-  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 1, msg: " $# / $# trials ($#%)" % [
+  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, write_child_i: 0, write_str: initStylishString(" N = " & $N)))
+proc displayTrialCount(i: int; count: int) =
+  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, write_child_i: 1, write_str: initStylishString(" $# / $# trials ($#%)" % [
     count.`$`.align(($trialCount).len),
     $trialCount,
     int(count / trialCount * 100).`$`.align(3),
-  ], stylish: stylish))
-proc displayTrial(i: int; trial: string, stylish = styleless) =
-  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, child_i: 2, msg: trial, stylish: stylish))
+  ])))
+proc displayTrial(i: int; text: StylishString) =
+  displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, write_child_i: 2, write_str: text))
 proc clearColumn(i: int) =
   displayChannel.send(DisplayAction(kind: dakClearColumn, i: i))
-proc overlay(i: int; text: string, xOffset: int, stylish: Stylish) =
-  displayChannel.send(DisplayAction(kind: dakOverlay, i: i, text: text, xOffset: xOffset, overlayStylish: stylish))
+proc overlay(i: int; text: StylishString, xOffset: int) =
+  displayChannel.send(DisplayAction(kind: dakOverlay, i: i, overlay_str: text, overlay_xOffset: xOffset))
 
 let columnWidth = columnDisplays[0].width
 proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
@@ -156,8 +154,7 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       displayN(i, N)
       displayTrialCount(i, existingTrials)
       for line in file.lines:
-        let (trialStr, stylish) = line.string.parseInt.float.reprInXChars(columnWidth - 1, "f")
-        displayTrial(i, trialStr, stylish)
+        displayTrial(i, line.string.parseInt.float.reprInXChars(columnWidth - 1, "f"))
 
     let file = open(filename, mode = fmAppend)
     defer: close(file)
@@ -169,10 +166,12 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
 
       displayTrialCount(i, t)
       let halfWidth = (columnWidth - 2 - 1) div 2
-      displayTrial(i, timeFormat(duration).align(halfWidth))
-      let (flipsStr, flipsStylish) = flips.float.reprInXchars(halfWidth - 1, "f")
-      overlay(i, flipsStr, halfWidth + 1, flipsStylish)
-
+      displayTrial(
+        i,
+        timeFormat(duration, width = halfWidth) &
+          " ".initStylishString &
+          flips.float.reprInXChars(halfWidth - 1, "f"),
+      )
       file.writeRow(flips)
 
 proc main() =
@@ -190,8 +189,8 @@ proc main() =
     of dakClearColumn:
       columnDisplays[action.i].children[2].clear()
     of dakWriteMessage:
-      columnDisplays[action.i].children[action.child_i].write(action.msg, action.stylish)
+      columnDisplays[action.i].children[action.write_child_i].write(action.write_str)
     of dakOverlay:
-      columnDisplays[action.i].children[2].overlay(action.text, action.xOffset, action.overlayStylish)
+      columnDisplays[action.i].children[2].overlay(action.overlay_str, action.overlay_xOffset)
 
 main()

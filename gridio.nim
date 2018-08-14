@@ -224,7 +224,7 @@ func wrapY(gridio; y: int): int =
   while result > gridio.bry:
     result -= gridio.height
 
-func wordWrap(text: string; width: int): seq[string] =
+func wordWrap(text: StylishString; width: int): seq[StylishString] =
   result = @[]
   var i = 0
   while i <= text.len:
@@ -244,29 +244,28 @@ proc clear*(gridio) =
       gridio.clearLine(y)
   gridio.prevWriteEndY = gridio.bry
 
-proc writeLines(gridio; text: string; stylish) =
+proc writeLines(gridio; text: StylishString) =
   let lines = text.wordWrap(gridio.width)
   for i, line in lines:
     stdout.setCursorPos(gridio.tlx, gridio.wrapY(gridio.prevWriteEndY + 1 + i))
-    writeStylish(line, stylish)
+    writeStylish(line)
   stdout.flushFile
   gridio.prevWriteEndY = gridio.wrapY(gridio.prevWriteEndY + lines.len)
 
-proc write*(gridio; text: string; stylish = styleless) =
+proc write*(gridio; text: StylishString) =
   if gridio.writeStyle == wsOverwrite:
     gridio.clear()
   if gridio.writeStyle == wsRadar:
     gridio.clearLine(gridio.wrapY(gridio.prevWriteEndY + 2))
-  gridio.writeLines(text, stylish)
+  gridio.writeLines(text)
 
-proc overlay*(gridio; text: string; xOffset: int = 0; stylish = styleless) =
+proc overlay*(gridio; text: StylishString; xOffset: int = 0) =
   ## Only available for wsRadar
   ## Writes over the previous line without advancing
   ## Line must not overflow
   assert(gridio.writeStyle == wsRadar)
   stdout.setCursorPos(gridio.tlx + xOffset, gridio.prevWriteEndY)
-  #writeStylish(text, stylish)
-  writeStylish(text, stylish)
+  writeStylish(text)
   stdout.flushFile
 
 template initImpl(name; orientation) =
