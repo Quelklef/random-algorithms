@@ -2,7 +2,7 @@
 
 SAVEGRAPHS
 
-WOPEN "D:\Workspaces\Nim\random-algorithms\Graph\Turan_Stat.txt";
+WOPEN "D:\Workspaces\Nim\random-algorithms\Graph\Turan_Stat.txt"; #Location of the Turan_Stat.txt file
   FTYPE;
     TEXT;
   FIELD;
@@ -23,9 +23,9 @@ Unstack ('p' 'TuranDiff' 'GreedyDiff');
   NewWS;
   VarNames.
 Worksheet "Worksheet 2"
-LET K5 = "D:\test\Turan"
+LET K5 = "D:\test\Turan" #Location to save the images
 LET K6 = "1"
-DO K1 = 1:50
+DO K1 = 1:50 #Number of graphs (ex 1:10 means 10 graphs)
  LET K2 = K1 * 3 - 2
  LET K3 = K2 + 1
  LET K4 = K3 + 1
