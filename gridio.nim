@@ -211,8 +211,8 @@ proc fix*(gridio) =
   ## Calculate the actual locations and sizes of the gridio and all
   ## child gridios. Should be called before any drawing happens.
   ## Should be called after any resizing.
-  # Would expect it to be ``terminalWidth() - 1``; dunno why it needs ``- 2``.
-  gridio.fix(not gridio.childOrientation, 1, 1, terminalWidth() - 2, terminalHeight() - 1)
+  # Would expect 'em to be ``- 1``; dunno why it needs ``- 2``.
+  gridio.fix(not gridio.childOrientation, 1, 1, terminalWidth() - 2, terminalHeight() - 2)
 
 proc fix*(gridio; tlx, tly, brx, bry) =
   ## Fix gridio to terminal size
