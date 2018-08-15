@@ -98,7 +98,6 @@ dispatchProcs:
   proc homogenous*[C](col: Coloring[C]; colMask: Coloring[2]): bool
   proc `or`*[C](col0, col1: Coloring[C]): Coloring[C]
 
-
 iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =
   for i in 0 ..< col.N:
     yield col.data[i]

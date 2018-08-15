@@ -31,9 +31,14 @@ or
 IMPLEMENT: Spacing, so the mask 111
 encapsulates 111, 10101, 1001001, 100010001, etc.
 
+a, a+d, _, a+3d
+11_1
+1010_01
+100100_001
+
 -----
 take a coloring(C, N)
-See if exists two points same color square apart
+See if exists two points of the same color that are a square number apart
 Record how long it takes to find a coloring for which this exists
 
 ----
@@ -52,7 +57,6 @@ towards a coloring without the MMP
 ---
 TODO LIST
 - Implement spacing
-- Refactor terminal io
 - Hill climbing
 - Write report
 

@@ -59,18 +59,18 @@ func timeFormat(t: float): StylishString =
     (if hurs > 0: (hurs.`$`.align(2) & "h ").withStyle(stylish(fgCyan, {styleBright})) else: "    ".initStylishString) &
     (if mins > 0: (mins.`$`.align(2) & "m ").withStyle(stylish(fgMagenta            )) else: "    ".initStylishString) &
     (if secs > 0: (secs.`$`.align(2) & "s ").withStyle(stylish(fgGreen              )) else: "    ".initStylishString) &
-    (             (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))                             )
+    (             (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))                               )
 
 func siFix(val: float, suffix = ""): StylishString =
   ## Returns a string of length ``7 + len(suffix)`` unless val >= 1_000_000_000_000_000
   # do NOT make this const, it breaks for some reason
   let fixes = [
-    (""  , 1.0                , stylish(fgWhite              )),
-    ("k" , 1_000.0            , stylish(fgCyan               )),
-    ("M" , 1_000_000.0        , stylish(fgGreen              )),
-    ("G" , 1_000_000_000.0    , stylish(fgMagenta            )),
-    ("T" , 1_000_000_000_000.0, stylish(fgCyan, {styleBright})),
-    ("_" , Inf                , stylish(                     )),
+    ("" , 1.0                , stylish(fgWhite              )),
+    ("k", 1_000.0            , stylish(fgCyan               )),
+    ("M", 1_000_000.0        , stylish(fgGreen              )),
+    ("G", 1_000_000_000.0    , stylish(fgMagenta            )),
+    ("T", 1_000_000_000_000.0, stylish(fgCyan, {styleBright})),
+    ("_", Inf                , stylish(                     )),
   ]
 
   for i, triplet in fixes:
@@ -140,6 +140,9 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       createFile(fileName)
     let existingTrials = numLines(filename)
 
+    if existingTrials >= trialCount:
+      continue
+
     block:
       let file = open(filename, mode = fmRead)
       defer: file.close()
@@ -158,8 +161,7 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let duration = epochTime() - t0
 
       displayTrialCount(i, t)
-      var trialStr = flips.float.siFix("f") & " ".initStylishString
-
+      let trialStr = flips.float.siFix("f") & " ".initStylishString
       let durStr = " ".initStylishString & timeFormat(duration)
       # ``+ 1`` for 1-space padding between rows
       if durStr.len + trialStr.len + 1 <= columnWidth:

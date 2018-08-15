@@ -14,6 +14,7 @@ iterator skip*[T](a, step: T, n: int): T =
 
 func has_MAS_correct*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
   # Slow but almost certainly correct has_MAS implementation
+  # Used in testing
   for stepSize in 1 .. (coloring.N - 1) div (K - 1):
     for startLoc in 0 .. coloring.N - (K - 1) * stepSize - 1:
       block skipping:
@@ -44,6 +45,17 @@ func has_MAS*[C](coloring: Coloring[C], K: range[2 .. int.high]): bool =
     if coloring.hasMMP(mask):
       return true
   return false
+
+func hasMMP_progression*[C](coloring: Coloring[C]; maskGen: proc(d: int): Coloring[2]): bool =
+  var d = 1
+  while true:
+    let mask = maskGen(d)
+    d += 1
+    if mask.N > coloring.N:
+      return false
+    if coloring.hasMMP(mask):
+      debugecho(mask)
+      return true
 
 proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, coloring: Coloring[C]] =
   var col = initColoring(C, N)

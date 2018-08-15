@@ -3,6 +3,7 @@ import macros
 import random
 import times
 import strutils
+import math
 
 import coloring
 import twoColoring
@@ -150,5 +151,16 @@ suite "Testing twoColoring":
     require(not hasMMP(!"101010101", !"11"))
     require(not hasMMP(!"1001001", !"111"))
     require(not hasMMP(!"100101", !"10001"))
+
+  test "(C=2) hasMMP_progression":
+    let arith = proc(d: int): Coloring[2] =
+      # a, a + d, a + 3d
+      result = initColoring(2, 1 + 3 * d)
+      result[0] = 1
+      result[d] = 1
+      result[3 * d] = 1
+    require hasMMP_progression(!"1101", arith)
+    require hasMMP_progression(!"1010001", arith)
+    require(not hasMMP_progression(!"1011", arith))
 
   discard  # Run once after each test
