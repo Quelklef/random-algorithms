@@ -227,7 +227,7 @@ func wrapY(gridio; y: int): int =
 func wordWrap(text: StylishString; width: int): seq[StylishString] =
   result = @[]
   var i = 0
-  while i <= text.len:
+  while i < text.len:
     result.add(text{i ..< i + width})
     i += width
 
@@ -258,15 +258,6 @@ proc write*(gridio; text: StylishString) =
   if gridio.writeStyle == wsRadar:
     gridio.clearLine(gridio.wrapY(gridio.prevWriteEndY + 2))
   gridio.writeLines(text)
-
-proc overlay*(gridio; text: StylishString; xOffset: int = 0) =
-  ## Only available for wsRadar
-  ## Writes over the previous line without advancing
-  ## Line must not overflow
-  assert(gridio.writeStyle == wsRadar)
-  stdout.setCursorPos(gridio.tlx + xOffset, gridio.prevWriteEndY)
-  writeStylish(text)
-  stdout.flushFile
 
 template initImpl(name; orientation) =
   func name*(size: int, children: seq[Gridio] = @[]): Gridio =

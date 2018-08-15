@@ -146,8 +146,7 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       displayN(i, N)
       displayTrialCount(i, existingTrials)
       for line in file.lines:
-        # TODO: ``- 1`` moves it back too far, but without ``- 1`` it overflows to next line?
-        displayTrial(i, (line.string.parseFloat.siFix("f") & " ".initStylishString).align(columnWidth - 1))
+        displayTrial(i, (line.string.parseFloat.siFix("f") & " ".initStylishString).align(columnWidth))
     let file = open(filename, mode = fmAppend)
     defer: file.close()
 
@@ -157,8 +156,7 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let duration = epochTime() - t0
 
       displayTrialCount(i, t)
-      # TODO: Same ``- 1`` thing here
-      var trialStr = (flips.float.siFix("f") & " ".initStylishString).align(columnWidth - 1)
+      var trialStr = (flips.float.siFix("f") & " ".initStylishString).align(columnWidth)
       let durStr = timeFormat(duration)
       trialStr[1 ..< durStr.len + 1] = durStr
       displayTrial(i, trialStr)
