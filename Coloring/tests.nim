@@ -141,38 +141,6 @@ suite "Testing twoColoring":
     let col = !s
     let r = col.has_MAS(rand(2 .. 30))
 
-  test "(C=2) resize (to 0)":
-    var col = !genStringNum(2, rand(10 .. 30))
-    col.resize(0)
-    require(col.N == 0)
-    require($col == "")
-
-  testMany "(C=2) resize (down)":
-    let s = genStringNum(2, rand(100 .. 500))
-    var col = !s
-    let newSize = rand(50)
-    let expected = ($col)[0 ..< newSize]
-    col.resize(newSize)
-    require(col.N == newSize)
-    let actual = $col
-    require(expected == actual)
-
-  testMany "(C=2) resize (up)":
-    let initSize = rand(250)
-    let s = genStringNum(2, initSize)
-    var col = !s
-    let newSize = rand(300 .. 500)
-    let expected = $col
-    col.resize(newSize)
-    require(col.N == newSize)
-    require(($col).len == newSize)
-    let actual = ($col)[0 ..< initSize]
-    require(expected == actual)
-    let zeros = ($col)[initSize ..< ^0]
-    require(zeros.len == newSize - initSize)
-    for c in zeros:
-      require(c == '0')
-
   test "(C=2) hasMMP":
     require hasMMP(!"11111", !"101")
     require hasMMP(!"10101", !"101")
