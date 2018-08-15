@@ -68,6 +68,12 @@ proc dispatchProc(procDecl: NimNode): NimNode =
   let call = newCall(procDecl[0].removeExportPostfix, args)
   if procDecl[3][0].kind == nnkEmpty:  # No return type
     procDef[6] = call
+  elif procDecl[3][0].kind == nnkBracketExpr and procDecl[3][0][0].eqIdent("Coloring"):  # Returns a Coloring
+    procDef[6] = nnkInfix.newTree(
+      newIdentNode("="),
+      nnkDotExpr.newTree(newIdentNode("result"), newIdentNode("data")),
+      call,
+    )
   else:
     procDef[6] = nnkReturnStmt.newTree(call)
 
@@ -90,9 +96,7 @@ dispatchProcs:
   proc `>>=`*[C](col: var Coloring[C]; amt: int)
   proc `<<=`*[C](col: var Coloring[C]; amt: int)
   proc homogenous*[C](col: Coloring[C]; colMask: Coloring[2]): bool
-
-proc `or`*[C](col0, col1: Coloring[C]): Coloring[C] =
-  result.data = col0.data or col1.data
+  proc `or`*[C](col0, col1: Coloring[C]): Coloring[C]
 
 
 iterator items*[C](col: Coloring[C]): range[0 .. C - 1] =
