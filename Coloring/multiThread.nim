@@ -44,7 +44,7 @@ proc numLines(f: string): int =
 proc createFile(f: string) =
   close(open(f, mode = fmWrite))
 
-func timeFormat(t: float, width: int): StylishString =
+func timeFormat(t: float): StylishString =
   var rest = int(t * 1000)
   let hurs = rest div 3600000
   rest = rest mod 3600000
@@ -54,18 +54,15 @@ func timeFormat(t: float, width: int): StylishString =
   rest = rest mod 1000
   let mils = rest
 
-  result              = (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))
-  if secs > 0: result = (secs.`$`.align(2) & "s ").withStyle(stylish(fgGreen              )) & result
-  else: result = "  ".initStylishString & result
-  if mins > 0: result = (mins.`$`.align(2) & "m ").withStyle(stylish(fgMagenta            )) & result
-  else: result = "  ".initStylishString & result
-  if hurs > 0: result = (hurs.`$`.align(2) & "h ").withStyle(stylish(fgCyan, {styleBright})) & result
-  else: result = "  ".initStylishString & result
-  result = initStylishString(" " * (width - result.len)) & result
+  return
+    (if hurs > 0: (hurs.`$`.align(2) & "h ").withStyle(stylish(fgCyan, {styleBright})) else: "    ".initStylishString) &
+    (if mins > 0: (mins.`$`.align(2) & "m ").withStyle(stylish(fgMagenta            )) else: "    ".initStylishString) &
+    (if secs > 0: (secs.`$`.align(2) & "s ").withStyle(stylish(fgGreen              )) else: "    ".initStylishString) &
+    (             (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))                             )
 
-func reprInXChars(val: float, n: int, suffix: string): StylishString =
-  # do NOT make this const, it breaks stylish() for some reason
-  let prefixes = [
+func siFix(val: float, suffix = ""): StylishString =
+  # do NOT make this const, it breaks for some reason
+  let fixes = [
     (""  , 1.0                , stylish(fgWhite              )),
     ("k" , 1_000.0            , stylish(fgCyan               )),
     ("M" , 1_000_000.0        , stylish(fgGreen              )),
@@ -74,11 +71,11 @@ func reprInXChars(val: float, n: int, suffix: string): StylishString =
     ("_" , Inf                , stylish(                     )),
   ]
 
-  for i, prefix in prefixes:
-    let (pref, amt, stylish) = prefix
-    if prefixes[i + 1][1] > val:
-      var res = (val / amt).formatFloat(ffDecimal, precision = 2){0 ..< (n - pref.len - suffix.len)}
-      return align(res & pref & suffix, n).withStyle(stylish)
+  for i, triplet in fixes:
+    let (fix, amt, stylish) = triplet
+    if fixes[i + 1][1] > val:
+      var res = (val / amt).formatFloat(ffDecimal, precision = 2)
+      return (res & fix & suffix).withStyle(stylish)
 
 let titleRow = box(1)
 var columnDisplays: array[threadCount, Gridio]
@@ -98,11 +95,13 @@ titleRow.write(
     [$C, $mask]).center(titleRow.width).withStyle(stylish({styleBright})),
 )
 
+let columnWidth = columnDisplays[0].width
+
 # TODO: This whole 'DisplayAction' business is really ugly
+# Perhaps there's a nicer way to handle it all?
 type DisplayActionKind = enum
   dakClearColumn
   dakWriteMessage
-  dakOverlay
 type DisplayAction = object
   i: int
   case kind: DisplayActionKind
@@ -111,10 +110,6 @@ type DisplayAction = object
   of dakWriteMessage:
     write_child_i: int
     write_str: StylishString
-  of dakOverlay:
-    overlay_child_i: int
-    overlay_str: StylishString
-    overlay_xOffset: int
 
 var displayChannel: Channel[DisplayAction]
 displayChannel.open()
@@ -131,10 +126,7 @@ proc displayTrial(i: int; text: StylishString) =
   displayChannel.send(DisplayAction(kind: dakWriteMessage, i: i, write_child_i: 2, write_str: text))
 proc clearColumn(i: int) =
   displayChannel.send(DisplayAction(kind: dakClearColumn, i: i))
-proc overlay(i: int; text: StylishString, xOffset: int) =
-  displayChannel.send(DisplayAction(kind: dakOverlay, i: i, overlay_str: text, overlay_xOffset: xOffset))
 
-let columnWidth = columnDisplays[0].width
 proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
   let (i, mask) = values
   while true:
@@ -148,16 +140,16 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
 
     block:
       let file = open(filename, mode = fmRead)
-      defer: close(file)
+      defer: file.close()
 
       clearColumn(i)
       displayN(i, N)
       displayTrialCount(i, existingTrials)
       for line in file.lines:
-        displayTrial(i, line.string.parseInt.float.reprInXChars(columnWidth - 1, "f"))
-
+        # TODO: ``- 1`` moves it back too far, but without ``- 1`` it overflows to next line?
+        displayTrial(i, (line.string.parseFloat.siFix("f") & " ".initStylishString).align(columnWidth - 1))
     let file = open(filename, mode = fmAppend)
-    defer: close(file)
+    defer: file.close()
 
     for t in existingTrials + 1 .. trialCount:
       let t0 = epochTime()
@@ -165,14 +157,15 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let duration = epochTime() - t0
 
       displayTrialCount(i, t)
-      let halfWidth = (columnWidth - 2 - 1) div 2
-      displayTrial(
-        i,
-        timeFormat(duration, width = halfWidth) &
-          " ".initStylishString &
-          flips.float.reprInXChars(halfWidth - 1, "f"),
-      )
+      # TODO: Same ``- 1`` thing here
+      var trialStr = (flips.float.siFix("f") & " ".initStylishString).align(columnWidth - 1)
+      let durStr = timeFormat(duration)
+      trialStr[1 ..< durStr.len + 1] = durStr
+      displayTrial(i, trialStr)
       file.writeRow(flips)
+
+var quitChannel: Channel[bool]  # The message itself is meaningless
+quitChannel.open()
 
 proc main() =
   for i in 0 ..< threadCount:
@@ -180,17 +173,24 @@ proc main() =
 
   var quitThread: Thread[void]
   quitThread.createThread do:
-    discard readline(stdin)
-    quit()
+    discard readLine(stdin)
+    quitChannel.send(true)
+
+  stdout.hideCursor()
 
   while true:
-    let action = displayChannel.recv
+    let action = displayChannel.recv()
     case action.kind
     of dakClearColumn:
       columnDisplays[action.i].children[2].clear()
     of dakWriteMessage:
       columnDisplays[action.i].children[action.write_child_i].write(action.write_str)
-    of dakOverlay:
-      columnDisplays[action.i].children[2].overlay(action.overlay_str, action.overlay_xOffset)
+
+    if quitChannel.peek > 0:
+      break
+
+  stdout.showCursor()
+  terminal.resetAttributes()
+  placeCursorAfter(root)
 
 main()

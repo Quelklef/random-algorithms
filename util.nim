@@ -54,9 +54,10 @@ func `{}`*[A, B](s: string, sl: HSlice[A, B]): string =
 
   return s[max(lo, 0) .. min(hi, s.len - 1)]
 
-func `|`*[K, V](t0, t1: Table[K, V]): Table[K, V] =
-  result = initTable[K, V]()
-  for key, val in t0.pairs:
-    result[key] = val
+func `|=`*[K, V](t0: var Table[K, V], t1: Table[K, V]) =
   for key, val in t1.pairs:
-    result[key] = val
+    t0[key] = val
+
+func `|`*[K, V](t0, t1: Table[K, V]): Table[K, V] =
+  result = t0
+  result |= t1

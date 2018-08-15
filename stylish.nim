@@ -4,9 +4,10 @@ import options
 import sets
 import sugar
 import sequtils
+import strutils
 import tables
 
-from util import `{}`, `|`
+from util import `{}`, `|`, `|=`
 
 # Almost this entire module is mindless glue
 # Please kill me
@@ -134,36 +135,60 @@ func `&`*(ss0, ss1: StylishString): StylishString =
     styles: ss0.styles | ss1.styles.shift(ss0.len),
   )
 
-# TODO: func
-proc getStyle(ss: StylishString, i: int): Stylish =
-  for j in countdown(i, 0):
-    if j in ss.styles:
-      return ss.styles[j]
-  return styleless
+func trimStyles(ss: var StylishString) =
+  ## Remove out-of-range styles
+  for i, stylish in ss.styles.pairs:
+    if i notin 0 ..< ss.len:
+      ss.styles.del(i)
 
 # TODO: func
 proc `[]=`*(ss: var StylishString, sl: Slice[int], stylish: Stylish) =
-  let styleAfter = ss.getStyle(sl.b + 1)
-  for loc, stylish in ss.styles.pairs:
-    if loc > sl.b:
-      break
-    if loc in sl:
-      ss.styles.del(loc)
+  var styleAfter = styleless
+  for i in sl:
+    if i in ss.styles:
+      styleAfter = ss.styles[i]
+      ss.styles.del(i)
   ss.styles[sl.b + 1] = styleAfter
   ss.styles[sl.a] = stylish
 
 proc writeStylish*(ss: StylishString) =
-  for i, c in ss.str:
-    let style = ss.getStyle(i)
-    writeStylish($c, style)
+  var prevI = 0
+  var style = styleless
+  for i in 0 ..< ss.len:
+    if i in ss.styles:
+      writeStylish(ss.str[prevI ..< i], style)
+      style = ss.styles[i]
+      prevI = i
+  if prevI < ss.str.len - 1:
+    writeStylish(ss.str[prevI ..< ss.str.len], style)
 
 func `[]`*(ss: StylishString, sl: Slice[int]): StylishString =
-  return StylishString(
+  result = StylishString(
     str: ss.str[sl],
     styles: ss.styles.shift(sl.a),
   )
 func `{}`*(ss: StylishString, sl: Slice[int]): StylishString =
-  return StylishString(
+  result = StylishString(
     str: ss.str{sl},
     styles: ss.styles.shift(sl.a),
   )
+
+func align*(ss: StylishString, width: int): StylishString =
+  return StylishString(
+    str: ss.str.align(width),
+    styles: ss.styles.shift(max(0, width - ss.len)),
+  )
+func alignLeft*(ss: StylishString, width: int): StylishString =
+  return StylishString(
+    str: ss.str.alignLeft(width),
+    styles: ss.styles,
+  )
+
+func `[]=`*(ss0: var StylishString, sl: Slice[int], ss1: StylishString) =
+  let lenDiff = ss1.len - (sl.b - sl.a + 1)
+  ss0.str[sl] = ss1.str
+  ss0.styles = ss0.styles.shift(lenDiff)
+  for i, style in ss0.styles.pairs:
+    if i in sl:
+      ss0.styles.del(i)
+  ss0.styles |= ss1.styles.shift(sl.a)

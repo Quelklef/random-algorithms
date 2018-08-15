@@ -1,10 +1,9 @@
 #!/bin/bash
 
-# Call like 'run.sh <C> <mask> <trials>'
+# Call like 'run.sh <C> <mask> <trials> [--debug]'
 
-if [ "$#" != 3 ]; then
-  echo "Requires three args: C, mask, trials"
-  exit
+if [ "$4" = "--debug" ]; then
+  debug="true"
 fi
 
 if [ "$1" -ne "2" ]; then
@@ -19,4 +18,9 @@ dirname="C_$(printf %05d $1)__mask_$(printf %05d $2)"
 mkdir -p "$dirname"
 cd "$dirname"
 
-nim c -d:release --threads:on -r ../../multiThread $1 $2 $3
+if [ "$debug" = true ]; then
+  nim c --threads:on -r ../../multiThread $1 $2 $3 2> ../../debug.txt
+  cat ../../debug.txt
+else
+  nim c -d:release --threads:on -r ../../multiThread $1 $2 $3
+fi
