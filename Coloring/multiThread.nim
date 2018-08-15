@@ -45,6 +45,7 @@ proc createFile(f: string) =
   close(open(f, mode = fmWrite))
 
 func timeFormat(t: float): StylishString =
+  ## Returns a string of length 15 unless time >= 10h
   var rest = int(t * 1000)
   let hurs = rest div 3600000
   rest = rest mod 3600000
@@ -61,6 +62,7 @@ func timeFormat(t: float): StylishString =
     (             (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))                             )
 
 func siFix(val: float, suffix = ""): StylishString =
+  ## Returns a string of length ``7 + len(suffix)`` unless val >= 1_000_000_000_000_000
   # do NOT make this const, it breaks for some reason
   let fixes = [
     (""  , 1.0                , stylish(fgWhite              )),
@@ -75,7 +77,7 @@ func siFix(val: float, suffix = ""): StylishString =
     let (fix, amt, stylish) = triplet
     if fixes[i + 1][1] > val:
       var res = (val / amt).formatFloat(ffDecimal, precision = 2)
-      return (res & fix & suffix).withStyle(stylish)
+      return (align(res & fix, 7) & suffix).withStyle(stylish)
 
 let titleRow = box(1)
 var columnDisplays: array[threadCount, Gridio]
@@ -156,10 +158,14 @@ proc doTrials(values: tuple[i: int, mask: Coloring[2]]) {.thread.} =
       let duration = epochTime() - t0
 
       displayTrialCount(i, t)
-      var trialStr = (flips.float.siFix("f") & " ".initStylishString).align(columnWidth)
-      let durStr = timeFormat(duration)
-      trialStr[1 ..< durStr.len + 1] = durStr
-      displayTrial(i, trialStr)
+      var trialStr = flips.float.siFix("f") & " ".initStylishString
+
+      let durStr = " ".initStylishString & timeFormat(duration)
+      # ``+ 1`` for 1-space padding between rows
+      if durStr.len + trialStr.len + 1 <= columnWidth:
+        displayTrial(i, durStr & initStylishString(" " * (columnWidth - durStr.len - trialStr.len)) & trialStr)
+      else:
+        displayTrial(i, trialStr.align(columnWidth))
       file.writeRow(flips)
 
 var quitChannel: Channel[bool]  # The message itself is meaningless
