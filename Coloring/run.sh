@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Call like 'run.sh <C> <mask> <trials> [--debug]'
+# Call like 'run.sh <C> <pattern-type> <pattern-param> <trials> [--debug]'
 
-if [ "$4" = "--debug" ]; then
+if [ "$5" = "--debug" ]; then
   debug="true"
 fi
 
@@ -14,13 +14,13 @@ fi
 mkdir -p data
 cd data
 
-dirname="C_$(printf %05d $1)__mask_$(printf %05d $2)"
+dirname="C=$(printf %05d $1);pattern=$2($3)"
 mkdir -p "$dirname"
 cd "$dirname"
 
 if [ "$debug" = true ]; then
-  nim c --threads:on -r ../../multiThread $1 $2 $3 2> ../../debug.txt
+  nim c --threads:on -r ../../multiThread $1 $2 $3 $4 2> ../../debug.txt
   cat ../../debug.txt
 else
-  nim c -d:release --threads:on -r ../../multiThread $1 $2 $3
+  nim c -d:release --threads:on -r ../../multiThread $1 $2 $3 $4
 fi

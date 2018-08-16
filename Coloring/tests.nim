@@ -8,6 +8,7 @@ import math
 import coloring
 import twoColoring
 import find
+import pattern
 from ../util import times
 
 # This module actually encapsulates both testing and benchmarking
@@ -153,14 +154,10 @@ suite "Testing twoColoring":
     require(not hasMMP(!"100101", !"10001"))
 
   test "(C=2) hasMMP_progression":
-    let arith = proc(d: int): Coloring[2] =
-      # a, a + d, a + 3d
-      result = initColoring(2, 1 + 3 * d)
-      result[0] = 1
-      result[d] = 1
-      result[3 * d] = 1
-    require hasMMP_progression(!"1101", arith)
-    require hasMMP_progression(!"1010001", arith)
-    require(not hasMMP_progression(!"1011", arith))
+    let patt = Pattern(kind: pkArithmetic, arg: "1101")
+    let maskGen = proc(d: int): Coloring[2] = patt.invoke(d)
+    require hasMMP_progression(!"1101", maskGen)
+    require hasMMP_progression(!"1010001", maskGen)
+    require(not hasMMP_progression(!"1011", maskGen))
 
   discard  # Run once after each test

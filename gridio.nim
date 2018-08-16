@@ -66,8 +66,6 @@ func `not`*(o: Orientation): Orientation =
     return oVertical
 
 type WriteStyle* = enum
-  # Each write is placed on top of the last without clearing
-  wsOverlay
   # Each write calls for a clear followed by an overlay
   wsOverwrite
   # Each write is placed underneath the last, looping at the bottom
@@ -259,6 +257,9 @@ proc write*(gridio; text: StylishString) =
     gridio.clearLine(gridio.wrapY(gridio.prevWriteEndY + 2))
   gridio.writeLines(text)
 
+proc write*(gridio; text: string) =
+  gridio.write(initStylishString(text))
+
 template initImpl(name; orientation) =
   func name*(size: int, children: seq[Gridio] = @[]): Gridio =
     return Gridio(
@@ -302,9 +303,11 @@ when isMainModule:
   big.fix()
   big.drawOutline()
 
+  big.write("hello!")
+  smol3.write("goodbye!")
+
   smol3.writeStyle = wsRadar
-  for i in 0 ..< 100:
-    smol3.write($chr(i + ord('A')))
-    discard readline(stdin)
+  for i in 0 ..< 1000:
+    smol3.write(withStyle($i, stylish(fgWhite, bgBlue, {styleBright})))
 
   placeCursorAfter(big)

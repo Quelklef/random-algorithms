@@ -7,6 +7,11 @@ import sequtils
 import strutils
 import tables
 
+export colors.Color
+export terminal.ForegroundColor
+export terminal.BackgroundColor
+export terminal.Style
+
 from util import `{}`, `|`, `|=`
 
 # Almost this entire module is mindless glue
