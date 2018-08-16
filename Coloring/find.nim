@@ -54,8 +54,19 @@ func hasMMP_progression*[C](coloring: Coloring[C]; maskGen: proc(d: int): Colori
     if mask.N > coloring.N:
       return false
     if coloring.hasMMP(mask):
-      debugecho(mask)
       return true
+
+proc find_noMMP_coloring_progressive*(C: static[int], N: int, maskGen: proc(d: int): Coloring[2]): tuple[flipCount: int, coloring: Coloring[C]] =
+  var col = initColoring(C, N)
+  var flips = 0
+
+  while true:
+    col.randomize()
+    inc(flips)
+
+    if not col.hasMMP_progression(maskGen):
+      return (flipCount: flips, coloring: col)
+
 
 proc find_noMAS_coloring*(C: static[int], N, K: int): tuple[flipCount: int, coloring: Coloring[C]] =
   var col = initColoring(C, N)
@@ -72,8 +83,9 @@ proc find_noMMP_coloring*(C: static[int], N: int, mask: Coloring[2]): tuple[flip
   var col = initColoring(C, N)
   var flips = 0
 
-  while col.hasMMP(mask):
+  while true:
     col.randomize()
     inc(flips)
 
-  return (flipCount: flips, coloring: col)
+    if not col.hasMMP(mask):
+      return (flipCount: flips, coloring: col)
