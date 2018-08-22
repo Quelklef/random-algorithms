@@ -51,7 +51,11 @@ for i in 0 ..< threadCount:
   let column = rows(@[N_disp, summary, radar])
   columnDisplays[i] = column
 let columnDisplaysWrap = cols(@columnDisplays)
-let root = rows(@[titleRow, columnDisplaysWrap])
+when defined(auto):
+  let footerRow = box(1)
+  let root = rows(@[titleRow, columnDisplaysWrap, footerRow])
+else:
+  let root = rows(@[titleRow, columnDisplaysWrap])
 root.fix()
 root.drawOutline(stylish({styleDim}))
 titleRow.write(
@@ -119,9 +123,32 @@ proc displayTrial(i: int; trial: StylishString) =
 var workerThreads: array[threadCount, Thread[tuple[i, columnWidth: int; pattern: Pattern]]]
 var nextN = 1
 
+when defined(auto):
+  # -d:auto terminates the program when we reach a state in which no threads have found a coloring
+  # for their given N
+  # In order to do that we need to keep track of whether or not a thread has found a coloring for
+  # the given N
+  # We do that with this array
+  var coloringFound: array[threadCount, bool]
+
+  # It's possible for a false positive to happen early on, so later in the code we'll include the
+  # stipulation that it's been at least a couple minutes of runtime
+  # In seconds
+  let minTime = int(epochTime()) + 2 * 60
+  let startTime = int(epochTime())
+
+# Don't put this in ``main``, it causes a compiler bug
+var quitChannel: Channel[bool]  # The message itself is meaningless
+quitChannel.open()
+
 proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
   let (i, columnWidth, pattern) = values
   while true:
+    when defined(auto):
+      coloringFound[i] = false
+      if int(epochTime()) > minTime and coloringFound.all(x => not x):
+        quitChannel.send(true)
+
     let N = nextN
     let filename = "N=$#.txt" % $N
     inc(nextN)
@@ -151,6 +178,9 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
       let (flips, _) = find_noMMP_coloring_progressive(C, N, proc(d: int): Coloring[2] = pattern.invoke(d))
       let duration = epochTime() - t0
 
+      when defined(auto):
+        coloringFound[i] = true
+
       displayTrialCount(i, t)
       let trialStr = flips.float.siFix("f") & " ".initStylishString
       let durStr = " ".initStylishString & timeFormat(duration)
@@ -160,10 +190,6 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
       else:
         displayTrial(i, trialStr.align(columnWidth))
       file.writeRow(flips)
-
-# Don't put this in ``main``, it causes a compiler bug
-var quitChannel: Channel[bool]  # The message itself is meaningless
-quitChannel.open()
 
 proc main() =
   for i in 0 ..< threadCount:
@@ -178,6 +204,12 @@ proc main() =
 
   while quitChannel.peek() == 0:
     doDisplayAction()
+    when defined(auto):
+      let total = $(minTime - startTime)
+      footerRow.write(("$#s / $#s" % [
+        $(int(epochTime()) - startTime),
+        $total,
+      ]).center(footerRow.width))
 
   stdout.showCursor()
   terminal.resetAttributes()
