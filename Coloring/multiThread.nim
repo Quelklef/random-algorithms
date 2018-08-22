@@ -37,6 +37,10 @@ let pattern = Pattern(
   arg: paramStr(3),
 )
 
+let outdirName = "data/C=$#;pattern=$#" % [C.`$`.align(5, '0'), $pattern]
+if not existsDir(outdirName):
+  createDir(outdirName)
+
 # How many trials we want for each datapoint
 let desiredTrialCount = paramStr(4).parseInt
 const threadCount = 8
@@ -120,7 +124,7 @@ proc displayTrial(i: int; trial: StylishString) =
     write_str: trial,
   ))
 
-var workerThreads: array[threadCount, Thread[tuple[i, columnWidth: int; pattern: Pattern]]]
+var workerThreads: array[threadCount, Thread[tuple[i, columnWidth: int; pattern: Pattern, outdirName: string]]]
 var nextN = 1
 
 when defined(auto):
@@ -141,8 +145,8 @@ when defined(auto):
 var quitChannel: Channel[bool]  # The message itself is meaningless
 quitChannel.open()
 
-proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
-  let (i, columnWidth, pattern) = values
+proc work(values: tuple[i, columnWidth: int, pattern: Pattern, outdirName: string]) {.thread.} =
+  let (i, columnWidth, pattern, outdirName) = values
   while true:
     when defined(auto):
       coloringFound[i] = false
@@ -150,7 +154,7 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
         quitChannel.send(true)
 
     let N = nextN
-    let filename = "N=$#.txt" % $N
+    let filename = outdirName / "N=$#.txt" % $N
     inc(nextN)
 
     if not fileExists(filename):
@@ -193,7 +197,7 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
 
 proc main() =
   for i in 0 ..< threadCount:
-    workerThreads[i].createThread(work, (i: i, columnWidth: columnDisplays[0].width, pattern: pattern))
+    workerThreads[i].createThread(work, (i: i, columnWidth: columnDisplays[0].width, pattern: pattern, outdirName: outdirName))
 
   var quitThread: Thread[void]
   quitThread.createThread do:
