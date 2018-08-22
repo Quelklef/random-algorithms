@@ -7,7 +7,7 @@ up in binary numbers.
 
 trials = 250
 
-os.system("nim c -d:auto --threads:on multiThread")
+os.system("nim c -d:release -d:auto --threads:on multiThread")
 input("\nPress enter to continue...")
 
 """
