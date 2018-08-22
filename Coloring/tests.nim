@@ -115,34 +115,6 @@ suite "Testing twoColoring":
     let mask = !genStringNum(2, size)
     let r = homogenous(col, mask)
 
-  test "(C=2) has_MAS":
-    require has_MAS(!"010", 2)
-    require has_MAS(!"111111111111", 5)
-    require has_MAS(!"0001000", 3)
-    require(not has_MAS(!"00001111", 5))
-    require(not has_MAS(!"0001000", 5))
-    require(not has_MAS(!"0000111100001111", 5))
-
-  test "(C=2) has_MAS / has_MAS_pure (incremental)":
-    for K in 2 .. 8:
-      for N in 5 .. 10:  # Small N so likely to have duplicates
-        1_000.times:
-          let col = !genStringNum(2, N)
-          let expected = has_MAS_correct(col, K)
-          require(has_MAS(col, K) == expected)
-
-  benchmark "(C=2) has_MAS (incremental)":
-    for K in 2 .. 8:
-      for N in 2 .. 30:
-        1000.times:
-          let col = !genStringNum(2, N)
-          let r = has_MAS(col, K)
-
-  benchmarkMany "(C=2) has_MAS":
-    let s = genStringNum(2, rand(1 .. 500))
-    let col = !s
-    let r = col.has_MAS(rand(2 .. 30))
-
   test "(C=2) hasMMP":
     require hasMMP(!"11111", !"101")
     require hasMMP(!"10101", !"101")

@@ -104,7 +104,7 @@ proc displayTrialCount(i: int; trials: int) =
     write_str: initStylishString(" $# / $# trials ($#%)" % [
       align($trials, len($desiredTrialCount)),
       $desiredTrialCount,
-      $int(trials / desiredTrialCount * 100),
+      align($int(trials / desiredTrialCount * 100), 3),
     ])
   ))
 
@@ -123,7 +123,7 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern]) {.thread.} =
   let (i, columnWidth, pattern) = values
   while true:
     let N = nextN
-    let filename = "N=$#" % $N
+    let filename = "N=$#.txt" % $N
     inc(nextN)
 
     if not fileExists(filename):
