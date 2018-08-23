@@ -122,10 +122,11 @@ func withStyle*(s: string, stylish: Stylish): StylishString =
     styles: {0: stylish}.toTable
   )
 
-func initStylishString*(s: string): StylishString =
+# TODO: func
+proc initStylishString*(s: string): StylishString =
   return StylishString(
     str: s,
-    styles: initTable[int, Stylish](),
+    styles: {0: styleless}.toTable,
   )
 
 func shift(styles: Table[int, Stylish], amt: int): Table[int, Stylish] =

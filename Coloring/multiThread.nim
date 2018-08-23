@@ -139,6 +139,8 @@ when defined(auto):
   # stipulation that it's been at least a couple minutes of runtime
   # In seconds
   let minTime = int(epochTime()) + 2 * 60
+  # If time is greater than this, move to the next pattern
+  let maxTime = int(epochTime()) + 90 * 60
   let startTime = int(epochTime())
 
 # Don't put this in ``main``, it causes a compiler bug
@@ -150,7 +152,8 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern, outdirName: strin
   while true:
     when defined(auto):
       coloringFound[i] = false
-      if int(epochTime()) > minTime and coloringFound.all(x => not x):
+      let t = int(epochTime())
+      if t > maxTime or t > minTime  and coloringFound.all(x => not x):
         quitChannel.send(true)
 
     let N = nextN
@@ -209,11 +212,14 @@ proc main() =
   while quitChannel.peek() == 0:
     doDisplayAction()
     when defined(auto):
-      let total = $(minTime - startTime)
-      footerRow.write(("$#s / $#s" % [
-        $(int(epochTime()) - startTime),
-        $total,
-      ]).center(footerRow.width))
+      let minTotal = (minTime - startTime).float.timeFormat(true)
+      let maxtotal = (maxTime - startTime).float.timeFormat(true)
+      let text =
+        maxTotal & initStylishString(" / ") &
+        (epochTime() - float(startTime)).timeFormat & initStylishString(" / ") &
+        minTotal & initStylishString("s")
+      let padLeft = (footerRow.width - text.len) div 2
+      footerRow.write(initStylishString(" " * padLeft) & text)
 
   stdout.showCursor()
   terminal.resetAttributes()

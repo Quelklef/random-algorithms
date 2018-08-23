@@ -8,7 +8,8 @@ proc numLines*(f: string): int =
 proc createFile*(f: string) =
   close(open(f, mode = fmWrite))
 
-func timeFormat*(t: float): StylishString =
+# TODO: func
+proc timeFormat*(t: float, showall=false): StylishString =
   var rest = int(t * 1000)
   let hurs = rest div 3600000
   rest = rest mod 3600000
@@ -19,10 +20,10 @@ func timeFormat*(t: float): StylishString =
   let mils = rest
 
   return
-    (if hurs > 0: (hurs.`$`.align(2) & "h ").withStyle(stylish(fgCyan, {styleBright})) else: "    ".initStylishString) &
-    (if mins > 0: (mins.`$`.align(2) & "m ").withStyle(stylish(fgMagenta            )) else: "    ".initStylishString) &
-    (if secs > 0: (secs.`$`.align(2) & "s ").withStyle(stylish(fgGreen              )) else: "    ".initStylishString) &
-    (             (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))                             )
+    (if hurs > 0 or showall: (hurs.`$`.align(2) & "h ").withStyle(stylish(fgCyan, {styleBright})) else: "    ".initStylishString) &
+    (if mins > 0 or showall: (mins.`$`.align(2) & "m ").withStyle(stylish(fgMagenta            )) else: "    ".initStylishString) &
+    (if secs > 0 or showall: (secs.`$`.align(2) & "s ").withStyle(stylish(fgGreen              )) else: "    ".initStylishString) &
+    (                        (mils.`$`.align(3) & "ms").withStyle(stylish(fgCyan               ))                               )
 
 func siFix*(val: float, suffix = ""): StylishString =
   # do NOT make this const, it breaks for some reason
