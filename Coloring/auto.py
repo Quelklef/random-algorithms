@@ -27,7 +27,7 @@ def commands():
     yield f"./multiThread 2 arithmetic {nbin} {trials}"
     n += 1
 
-wait = 3  # Seconds
+wait = 1  # Seconds
 for command in commands():
   # Give a slight pause so that user can CTRL-C to quit
   print(f"Running '{command}' in {wait}s...")
