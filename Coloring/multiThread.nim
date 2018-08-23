@@ -71,7 +71,6 @@ titleRow.write(
 type DisplayCommandKind = enum
   dckClearColumn
   dckWrite
-  dckWriteFooter
 type DisplayCommand = object
   case kind: DisplayCommandKind
   of dckClearColumn:
@@ -80,8 +79,6 @@ type DisplayCommand = object
     write_column_i: int
     write_row_i: int
     write_str: StylishString
-  of dckWriteFooter:
-    writeFooter_str: StylishString
 
 var displayChannel: Channel[DisplayCommand]
 displayChannel.open()
@@ -93,9 +90,8 @@ proc doDisplayAction() =
     of dckClearColumn:
       columnDisplays[action.clear_column_i].children[2].clear()
     of dckWrite:
+      discard
       columnDisplays[action.write_column_i].children[action.write_row_i].write(action.write_str)
-    of dckWriteFooter:
-      footerRow.write(action.writeFooter_str)
 
 proc clearColumn(i: int) =
   displayChannel.send(DisplayCommand(kind: dckClearColumn, clear_column_i: i))
@@ -139,14 +135,9 @@ when defined(auto):
   # We do that with this array
   var coloringFound: array[threadCount, bool]
   # Min runtime before quitting is allowed (s)
-  # The program will quit instantly if this isn't included
   const minTime = float(5)
   # Max runtime, after which will force quit (s)
-  const maxTime = float(10)
-
-when defined(auto):
-  proc displayFooter(text: StylishString) =
-    displayChannel.send(DisplayCommand(kind: dckWriteFooter, writeFooter_str: text))
+  const maxTime = float(2 * 60 * 60)
 
 # Don't put this in ``main``, it causes a compiler bug
 var quitChannel: Channel[bool]  # The message itself is meaningless
@@ -200,34 +191,19 @@ proc work(values: tuple[i, columnWidth: int, pattern: Pattern, outdirName: strin
         displayTrial(i, trialStr.align(columnWidth))
       file.writeRow(flips)
 
-when defined(auto):
-  let startTime = epochTime()
-  let footerRowWidth = footerRow.width
+let startTime = epochTime()
 proc main() =
   for i in 0 ..< threadCount:
     workerThreads[i].createThread(work, (i: i, columnWidth: columnDisplays[0].width, pattern: pattern, outdirName: outdirName))
 
-  when defined(auto):
-    var timeLimitThread: Thread[void]
-    timeLimitThread.createThread do:
-      let formatMinTime = minTime.timeFormat(true)
-      let formatMaxTime = maxTime.timeFormat(true)
-
-      sleep(int(minTime * 1000))
-      while true:
-        let t = epochTime()
-
-        let text =
-          formatMaxTime & initStylishString(" / ") &
-          (epochTime() - float(startTime)).timeFormat & initStylishString(" / ") &
-          formatMinTime
-        let padLeft = (footerRowWidth - text.len) div 2
-        let finalText = initStylishString(" " * padLeft) & text
-        displayFooter(finalText)
-
-        if t > startTime + maxTime or coloringFound.all(x => not x):
-          quitChannel.send(true)
-        sleep(523)  # Prime number
+  var timeLimitThread: Thread[void]
+  timeLimitThread.createThread do:
+    sleep(int(minTime * 1000))
+    while true:
+      let t = epochTime()
+      if t > startTime + maxTime or coloringFound.all(x => not x):
+        quitChannel.send(true)
+      sleep(5 * 1000)
 
   var quitThread: Thread[void]
   quitThread.createThread do:
@@ -236,8 +212,17 @@ proc main() =
 
   stdout.hideCursor()
 
+  let formatMinTime = minTime.timeFormat(true)
+  let formatMaxTime = maxTime.timeFormat(true)
   while quitChannel.peek() == 0:
     doDisplayAction()
+    when defined(auto):
+      let text =
+        formatMaxTime & initStylishString(" / ") &
+        (epochTime() - float(startTime)).timeFormat & initStylishString(" / ") &
+        formatMinTime
+      let padLeft = (footerRow.width - text.len) div 2
+      footerRow.write(initStylishString(" " * padLeft) & text)
 
   stdout.showCursor()
   terminal.resetAttributes()
