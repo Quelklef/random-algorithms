@@ -1,3 +1,4 @@
+import time
 import os
 
 """
@@ -16,11 +17,19 @@ We emulate this by prepending and appending each binary string with
 a 1, and starting with running 1 and 11 on their own.
 """
 
-os.system(f"./multiThread 2 arithmetic 1 {trials}")
-os.system(f"./multiThread 2 arithmetic 11 {trials}")
+def commands():
+  yield f"./multiThread 2 arithmetic 1 {trials}"
+  yield f"./multiThread 2 arithmetic 11 {trials}"
 
-n = 0
-while True:
-  nbin = "1" + bin(n)[2:] + "1"
-  os.system(f"./multiThread 2 arithmetic {nbin} 250")
-  n += 1
+  n = 0
+  while True:
+    nbin = "1" + bin(n)[2:] + "1"
+    yield f"./multiThread 2 arithmetic {nbin} {trials}"
+    n += 1
+
+wait = 3  # Seconds
+for command in commands():
+  # Give a slight pause so that user can CTRL-C to quit
+  print(f"Running '{command}' in {wait}s...")
+  time.sleep(wait)
+  os.system(command)
