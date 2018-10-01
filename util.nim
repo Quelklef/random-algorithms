@@ -61,3 +61,10 @@ func `|=`*[K, V](t0: var Table[K, V], t1: Table[K, V]) =
 func `|`*[K, V](t0, t1: Table[K, V]): Table[K, V] =
   result = t0
   result |= t1
+
+proc numLines*(f: string): int =
+    return f.readFile.string.countLines - 1
+
+proc createFile*(f: string) =
+  close(open(f, mode = fmWrite))
+
