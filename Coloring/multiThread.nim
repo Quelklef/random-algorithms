@@ -12,7 +12,7 @@ import coloring
 import find
 import fileio
 import pattern as patternModule
-from ../util import `*`, times, `{}`, createFile, numLines
+from ../util import `*`, times, `{}`, createFile, numLines, optParam
 
 #[
 4 command-line params:
@@ -27,12 +27,10 @@ when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
   discard readLine(stdin)
 
-# Only supports C=2
-assert "2" == paramStr(1)
-const C = 2 #paramStr(1).parseInt
+let C = optParam(1).map(parseInt).get(2)
 let pattern = Pattern(
-  kind: patternKinds[paramStr(2)],
-  arg: paramStr(3),
+  kind: patternKinds[optParam(2).get("arithmetic")],
+  arg: optParam(3).get("1100110011"),
 )
 
 let outdirName = "data/C=$#;pattern=$#" % [C.`$`.align(5, '0'), $pattern]
@@ -40,8 +38,8 @@ if not existsDir(outdirName):
   createDir(outdirName)
 
 # How many trials we want for each datapoint
-let desiredTrialCount = paramStr(4).parseInt
-let maxN = paramStr(5).parseInt
+let desiredTrialCount = optParam(4).map(parseInt).get(10_000)
+let maxN = optParam(5).map(parseInt).get(100)
 const threadCount = 8
 
 var workerThreads: array[threadCount, Thread[tuple[i: int; pattern: Pattern, outdirName: string]]]

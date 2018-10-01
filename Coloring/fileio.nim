@@ -11,10 +11,10 @@ import ../util
 # Quotes are escaped with another quote
 # Values that contain commas and newlines are surrounded by quotes
 
-func writeRow*(file: File, vals: varargs[string, `$`]) =
+proc writeRow*(file: File, vals: varargs[string, `$`]) =
   file.writeLine(
     vals
-      .map(func(s: string): string =
+      .map(proc(s: string): string =
         result = s.replace("\"", "\"\"")
         if '\c' in s or '\L' in s or "," in s:
           result = "\"" & result & "\"")

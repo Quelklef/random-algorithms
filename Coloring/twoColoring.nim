@@ -12,7 +12,7 @@ from ../util import rand_u64, times
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
 template low[T: uint64](t: typedesc[T]): uint64 = 0'u64
 
-func ceildiv(x, y: int): int =
+proc ceildiv(x, y: int): int =
   ## Like `x div y` but instead of being eq to floor(x/y), is eq to ceil(x/y)
   result = x div y
   if x mod y != 0: result.inc
@@ -30,7 +30,7 @@ We maintain the following state:
 type TwoColoring* = ref object of Coloring
   data*: seq[uint64]
 
-func initTwoColoring*(N: int): TwoColoring =
+proc initTwoColoring*(N: int): TwoColoring =
   new(result)
   result.N = N
   result.C = 2
@@ -41,7 +41,7 @@ func initTwoColoring*(N: int): TwoColoring =
 method `==`*(col0: TwoColoring; col1: Coloring): bool =
   return col1 of TwoColoring and col0.N == col1.N and col0.data == col1.TwoColoring.data
 
-func asBinReversed(x: uint64): string =
+proc asBinReversed(x: uint64): string =
   ## Return the binary string representation of a uint64, reversed
   result = ""
   for i in 0 ..< 64:
@@ -54,10 +54,10 @@ method `$`*(col: TwoColoring): string =
     result &= asBinReversed(ui)
   result = result[0 ..< col.N]
 
-func `{}`(col: TwoColoring, i: int): int =
+proc `{}`(col: TwoColoring, i: int): int =
   return int(1'u64 and (col.data[i div 64] shr (i mod 64)))
 
-func `{}=`(col: var TwoColoring, i: int, val: int) =
+proc `{}=`(col: var TwoColoring, i: int, val: int) =
   if val == 1:
     col.data[i div 64] = col.data[i div 64] or      (1'u64 shl (i mod 64))
   else: # val == 0
@@ -75,12 +75,6 @@ method `[]=`*(col: var TwoColoring, i: int, val: int) =
       raise newException(IndexError, "Index $# out of bounds" % $i)
   col{i} = val
 
-func `+=`*(col: var TwoColoring, amt: uint64) =
-  ## May overflow
-  col.data[0] += amt
-  if col.data.len > 1:
-    col.data[1] += (col.data[0] < amt).uint64
-
 method randomize*(col: var TwoColoring): void =
   ## Randomize a two-coloring
   for i in 0 ..< col.data.len:
@@ -97,7 +91,7 @@ method homogenous*(col, mask: TwoColoring): bool =
       return false
   return true
 
-func shiftRightImpl(col: var TwoColoring; overflow: uint64; i: int) =
+proc shiftRightImpl(col: var TwoColoring; overflow: uint64; i: int) =
   # Note that we implement this as a "shift left" since the colorings are stored
   # in order of significance, not canonical order
   if i >= col.data.len:
@@ -109,9 +103,6 @@ func shiftRightImpl(col: var TwoColoring; overflow: uint64; i: int) =
 method shiftRight*(col: var TwoColoring) =
   ## In-place shift right
   col.shiftRightImpl(0, 0)
-
-func hash*(col: TwoColoring): Hash =
-  return !$(0 !& hash(col.N) !& hash(col.data))
 
 method `or`*(col0: TwoColoring; col1: Coloring): Coloring =
   # TODO: this multimethod is kinda ugly
