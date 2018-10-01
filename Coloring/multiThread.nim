@@ -11,30 +11,19 @@ import tables
 import coloring
 import find
 import fileio
-import pattern as patternModule
+import trial
 from ../util import `*`, times, `{}`, createFile, numLines, optParam
-
-let C = 2
-let desiredTrialCount = 100_000
-let maxN = 1000
-let pattern = Pattern(kind: patternKinds["arithmetic"], arg: "1011")
-
-# If we generate this many unsatisfactory colorings without generating a single
-# satisfactory one, abort
-let tolerance = 25000
 
 when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
   discard readLine(stdin)
 
-let outdirName = "data/C=$#;pattern=$#" % [C.`$`.align(5, '0'), $pattern]
-if not existsDir(outdirName):
-  createDir(outdirName)
-
 const threadCount = 8
 
-var workerThreads: array[threadCount, Thread[tuple[i: int; pattern: Pattern, outdirName: string]]]
-var nextN = 1
+var workerThreads: array[threadCount, Thread[tuple[i: int; spec: TrialSpec]]]
+var nextN: int
+var nLock: Lock
+initLock(nLock)
 
 var terminalLock: Lock
 initLock(terminalLock)
@@ -45,21 +34,25 @@ proc put(s: string; y = 0) =
   stdout.write(s)
   stdout.flushFile()
 
-proc work(values: tuple[i: int, pattern: Pattern, outdirName: string]) {.thread.} =
-  let (i, pattern, outdirName) = values
+proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
+  let (i, spec) = values
 
   while true:
-    let N = nextN
-    var tolerable = false
+    var N: int
+    withLock(nLock):
+      N = nextN
+      nextN.inc()
 
-    if N >= maxN:
+    if N > spec.maxN:
       break
 
-    withLock(terminalLock):
-      put("Thread $# N=$#" % [$i, $N], i)
+    # 'tolerable' means that the thread has found a satisfactory coloring
+    # If the thread is intolerable once the tolerance is reached, it's terminated
+    var tolerable = false
 
-    discard atomicInc(nextN)
-    let filename = outdirName / "N=$#.txt" % $N
+    if not existsDir(spec.outloc):
+      createDir(spec.outloc)
+    let filename = spec.outloc / "N=$#.txt" % $N
 
     if not fileExists(filename):
       createFile(filename)
@@ -75,15 +68,15 @@ proc work(values: tuple[i: int, pattern: Pattern, outdirName: string]) {.thread.
     let file = open(filename, mode = fmAppend)
     defer: file.close()
 
-    var col = initColoring(C, N)
-    for t in 0 ..< desiredTrialCount - existingTrialCount:
+    var col = initColoring(spec.C, N)
+    for t in 1 .. spec.coloringCount - existingTrialCount:
       # Note that we're testing against t here, meaning each time we run the program
       # we give the colorings a 'second chance' to be tolerable
-      if t >= tolerance and not tolerable:
+      if t >= spec.tolerance and not tolerable:
         break
 
       col.randomize()
-      if col.hasMMP_progression(proc(d: int): Coloring = pattern.invoke(d)):
+      if col.hasMMP_progression(spec.pattern):
         file.write(0)
       else:
         tolerable = true
@@ -93,27 +86,38 @@ proc work(values: tuple[i: int, pattern: Pattern, outdirName: string]) {.thread.
 
       withLock(terminalLock):
         let trialCount = t + existingTrialCount
-        let aN = ($N).align(len($maxN))
-        let aTrialCount = ($trialCount).align(len($desiredTrialCount))
-        put("[Thread $#] [N=$#/$#; $#%] [Trial #$#/$#; $#%] [$#; $# left]" %
+        let aN = ($N).align(len($spec.maxN))
+        let aTrialCount = ($trialCount).align(len($spec.coloringCount))
+        put("[Thread $#] [$#] [N=$#/$#; $#%] [Trial #$#/$#; $#%] [$#; $# left]" %
           [
             $i,
+            spec.description,
             aN,
-            $maxN,
-            (N / maxN * 100).formatPercent,
+            $spec.maxN,
+            (N / spec.maxN * 100).formatPercent,
             aTrialCount,
-            $desiredTrialCount,
-            (trialCount / desiredTrialCount * 100).formatPercent,
+            $spec.coloringCount,
+            (trialCount / spec.coloringCount * 100).formatPercent,
             if tolerable: "  tolerable" else: "intolerable",
-            ($max(0, tolerance - t)).align(len($tolerance)),
+            ($max(0, spec.tolerance - t)).align(len($spec.tolerance)),
           ],
           i,
         )
 
+let trialGen = arithmeticTrialGen
+
 proc main() =
   eraseScreen()
-  for i in 0 ..< threadCount:
-    workerThreads[i].createThread(work, (i: i, pattern: pattern, outdirName: outdirName))
-  workerThreads.joinThreads()
+
+  var p = 1
+  while true:
+    nextN = 1
+
+    let trialSpec = trialGen(p)
+    for i in 0 ..< threadCount:
+      workerThreads[i].createThread(work, (i: i, spec: trialSpec))
+    workerThreads.joinThreads()
+
+    p.inc
 
 main()
