@@ -36,15 +36,3 @@ proc hasMMP_progression*(coloring: Coloring; maskGen: proc(d: int): Coloring): b
       return false
     if coloring.hasMMP(mask):
       return true
-
-proc find_noMMP_coloring_progressive*(C, N: int, maskGen: proc(d: int): Coloring): tuple[flipCount: int, coloring: Coloring] =
-  var col = initColoring(C, N)
-  var flips = 0
-
-  while true:
-    col.randomize()
-    inc(flips)
-
-    if not col.hasMMP_progression(maskGen):
-      return (flipCount: flips, coloring: col)
-
