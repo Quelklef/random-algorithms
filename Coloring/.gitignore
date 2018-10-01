@@ -1,2 +1,3 @@
-# Output dir for ./run.sh
 data/
+venv/
+plots/
