@@ -54,15 +54,16 @@ template benchmarkTestMany(name: string, body: untyped): untyped =
   benchmarkMany(name, body)
   testMany(name, body)
 
-func `!`(s: string): Coloring[2] =
-  initColoring(2, s)
+proc `!`(s: string): Coloring =
+  var C = 2  # Minimum 2
+  for c in s:
+    C = max(ord(c) - ord('0'), C)
+
+  result = initColoring(C, len(s))
+  for i, c in s:
+    result[i] = ord(c) - ord('0')
 
 suite "Testing twoColoring":
-  setup:
-    discard  # Run before each test
-  teardown:
-    discard  # Run after each test
-
   benchmarkTestMany "(C=2) initColoring / $":
     let s = genStringNum(2, rand(500))
     require($ !s == s)
@@ -73,22 +74,12 @@ suite "Testing twoColoring":
     for i, car in s:
       require($col[i] == $car)
 
-  benchmarkTestMany "(C=2) >>=":
-    let shift = rand(1 .. 63)
+  benchmarkTestMany "(C=2) shiftRight":
     let s = genStringNum(2, 64 + rand(300))
     var col = !s
-    let befor = ($col)[0 ..< ^shift]
-    col >>= shift
-    let after = ($col)[shift ..< ^0]
-    require(befor == after)
-
-  benchmarkTestMany "(C=2) <<=":
-    let shift = rand(1 .. 63)
-    let s = genStringNum(2, 64 + rand(300))
-    var col = !s
-    let befor = ($col)[shift ..< ^0]
-    col <<= shift
-    let after = ($col)[0 ..< ^shift]
+    let befor = ($col)[0 ..< ^1]
+    col.shiftRight()
+    let after = ($col)[1 ..< ^0]
     require(befor == after)
 
   benchmarkTestMany "(C=2) == / !=":
@@ -127,9 +118,7 @@ suite "Testing twoColoring":
 
   test "(C=2) hasMMP_progression":
     let patt = Pattern(kind: pkArithmetic, arg: "1101")
-    let maskGen = proc(d: int): Coloring[2] = patt.invoke(d)
+    let maskGen = proc(d: int): Coloring = patt.invoke(d)
     require hasMMP_progression(!"1101", maskGen)
     require hasMMP_progression(!"1010001", maskGen)
     require(not hasMMP_progression(!"1011", maskGen))
-
-  discard  # Run once after each test

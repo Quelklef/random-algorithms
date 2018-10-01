@@ -15,7 +15,7 @@ type Pattern* = object
   kind*: PatternKind
   arg*: string
 
-proc invoke*(patt: Pattern, d: int): Coloring[2] =
+proc invoke*(patt: Pattern, d: int): Coloring =
   case patt.kind
   of pkArithmetic:
     result = initColoring(2, d * (patt.arg.len - 1) + 1)

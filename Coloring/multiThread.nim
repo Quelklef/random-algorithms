@@ -66,7 +66,7 @@ proc work(values: tuple[i: int, pattern: Pattern, outdirName: string]) {.thread.
       break
 
     withLock(terminalLock):
-      put("## Beginning N=$# on thread $# ##" % [$N, $i], i + 1)
+      put("Thread $# N=$#" % [$i, $N], i + 1)
     discard atomicInc(nextN)
     let filename = outdirName / "N=$#.txt" % $N
 
@@ -79,7 +79,7 @@ proc work(values: tuple[i: int, pattern: Pattern, outdirName: string]) {.thread.
 
     for t in existingTrials + 1 .. desiredTrialCount:
       let t0 = epochTime()
-      let (flips, _) = find_noMMP_coloring_progressive(C, N, proc(d: int): Coloring[2] = pattern.invoke(d))
+      let (flips, _) = find_noMMP_coloring_progressive(C, N, proc(d: int): Coloring = pattern.invoke(d))
       let duration = epochTime() - t0
 
       withLock(terminalLock):

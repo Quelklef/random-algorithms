@@ -4,6 +4,7 @@ import sets
 import tables
 
 import coloring
+from ../util import times
 
 iterator skip*[T](a, step: T, n: int): T =
   ## Yield a, a + T, a + 2T, etc., n times
@@ -12,7 +13,7 @@ iterator skip*[T](a, step: T, n: int): T =
     yield x
     x += step
 
-func hasMMP*[C](coloring: Coloring[C], mask: Coloring[2]): bool =
+proc hasMMP*(coloring, mask: Coloring): bool =
   ## MMP stands for Mask Monochromatic Position
   ## Given the coloring & a mask, can the mask be placed in some position so that the
   ## colors designated by the mask are monochromatic?
@@ -21,10 +22,10 @@ func hasMMP*[C](coloring: Coloring[C], mask: Coloring[2]): bool =
   (coloring.N - mask.N + 1).times:
     if coloring.homogenous(fullMask):
       return true
-    fullMask >>= 1
+    fullMask.shiftRight()
   return false
 
-func hasMMP_progression*[C](coloring: Coloring[C]; maskGen: proc(d: int): Coloring[2]): bool =
+proc hasMMP_progression*(coloring: Coloring; maskGen: proc(d: int): Coloring): bool =
   ## Iterate through the masks given by ``maskGen`` for ``d`` from ``1`` onward
   ## until the mask is too large
   var d = 1
@@ -36,7 +37,7 @@ func hasMMP_progression*[C](coloring: Coloring[C]; maskGen: proc(d: int): Colori
     if coloring.hasMMP(mask):
       return true
 
-proc find_noMMP_coloring_progressive*(C: static[int], N: int, maskGen: proc(d: int): Coloring[2]): tuple[flipCount: int, coloring: Coloring[C]] =
+proc find_noMMP_coloring_progressive*(C, N: int, maskGen: proc(d: int): Coloring): tuple[flipCount: int, coloring: Coloring] =
   var col = initColoring(C, N)
   var flips = 0
 
