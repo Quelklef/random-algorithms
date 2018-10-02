@@ -43,7 +43,7 @@ proc arithmeticTrialGen*(p: int): TrialSpec =
       if c == '1':
         result[i * d] = 1
 
-  result.coloringCount = 1_000_000
+  result.coloringCount = 2_500_000
   result.outloc = "data/arithmetic/$#" % $p
   result.description = "arithmetic p=$#, pattern=$#" % [$p, $patternStr]
 
