@@ -13,10 +13,6 @@ type TrialSpec* = object
   # The goal N to reach
   maxN*: int
 
-  # If we generate this many colorings and don't find a satisfactory
-  # one, then skip
-  tolerance*: int
-
   pattern*: proc(d: int): Coloring {.gcSafe.}
 
   # Output directory
@@ -37,6 +33,5 @@ proc arithmeticTrialGen*(p: int): TrialSpec =
 
   result.maxN = 500
   result.coloringCount = 100_000
-  result.tolerance = 5000
-  result.outloc = "data/arithmetic/" & $p
+  result.outloc = "data/arithmetic/$#" % $p
   result.description = "arithmetic p=$#, pattern=$#" % [$p, $patternStr]

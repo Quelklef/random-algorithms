@@ -10,7 +10,6 @@ import tables
 
 import coloring
 import find
-import fileio
 import trial
 from ../util import `*`, times, `{}`, createFile, numLines, optParam
 
@@ -25,8 +24,8 @@ var nextN: int
 var nLock: Lock
 initLock(nLock)
 
-var terminalLock: Lock
-initLock(terminalLock)
+var ioLock: Lock
+initLock(ioLock)
 
 proc put(s: string; y = 0) =
   stdout.setCursorPos(0, y)
@@ -36,6 +35,7 @@ proc put(s: string; y = 0) =
 
 proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
   let (i, spec) = values
+  var lastUpdate = 0.0  # 0 so that always updates on a new pattern
 
   while true:
     var N: int
@@ -46,78 +46,79 @@ proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
     if N > spec.maxN:
       break
 
-    # 'tolerable' means that the thread has found a satisfactory coloring
-    # If the thread is intolerable once the tolerance is reached, it's terminated
-    var tolerable = false
+    # Store a (count, success) tuple as data
+    var colorings = 0
+    var successes = 0
 
-    if not existsDir(spec.outloc):
-      createDir(spec.outloc)
-    let filename = spec.outloc / "N=$#.txt" % $N
+    let fileloc = spec.outloc / "$#.txt" % $N
 
-    if not fileExists(filename):
-      createFile(filename)
-
-    var existingTrialCount: int
-    block:
-      let file = open(filename, mode = fmRead)
-      existingTrialCount = file.getFileSize().int
-      if '1' in file.readAll():
-        tolerable = true
-      file.close()
-
-    let file = open(filename, mode = fmAppend)
-    defer: file.close()
+    if fileExists(fileloc):
+      let file = open(fileloc, mode = fmRead)
+      defer: file.close()
+      let existingData = file.readAll().splitLines()
+      colorings = parseInt(existingData[0])
+      successes = parseInt(existingData[1])
 
     var col = initColoring(spec.C, N)
-    for t in 1 .. spec.coloringCount - existingTrialCount:
+    for t in 1 .. spec.coloringCount - colorings:
       # Note that we're testing against t here, meaning each time we run the program
       # we give the colorings a 'second chance' to be tolerable
-      if t >= spec.tolerance and not tolerable:
-        break
 
       col.randomize()
+      colorings += 1
       if col.hasMMP_progression(spec.pattern):
-        file.write(0)
-      else:
-        tolerable = true
-        file.write(1)
+        successes += 1
 
       template formatPercent(x): string = x.formatFloat(format = ffDecimal, precision = 1).align(5)
 
-      withLock(terminalLock):
-        let trialCount = t + existingTrialCount
-        let aN = ($N).align(len($spec.maxN))
-        let aTrialCount = ($trialCount).align(len($spec.coloringCount))
-        put("[Thread $#] [$#] [N=$#/$#; $#%] [Trial #$#/$#; $#%] [$#; $# left]" %
-          [
-            $i,
-            spec.description,
-            aN,
-            $spec.maxN,
-            (N / spec.maxN * 100).formatPercent,
-            aTrialCount,
-            $spec.coloringCount,
-            (trialCount / spec.coloringCount * 100).formatPercent,
-            if tolerable: "  tolerable" else: "intolerable",
-            ($max(0, spec.tolerance - t)).align(len($spec.tolerance)),
-          ],
-          i,
-        )
+      # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
+      const pause = 0.5  # minmum time between IO updates (s)
+      if epochTime() > lastUpdate + pause:
+        lastUpdate = epochTime()
+        withLock(ioLock):
+          let trialCount = t + colorings
+          let aN = ($N).align(len($spec.maxN))
+          let aTrialCount = ($trialCount).align(len($spec.coloringCount))
+          put("[Thread $#] [$#] [N=$#/$#; $#%] [Trial #$#/$#; $#%]" %
+            [
+              $i,
+              spec.description,
+              aN,
+              $spec.maxN,
+              (N / spec.maxN * 100).formatPercent,
+              aTrialCount,
+              $spec.coloringCount,
+              (trialCount / spec.coloringCount * 100).formatPercent,
+            ],
+            i,
+          )
+
+    let file = open(fileloc, mode = fmWrite)
+    file.write($colorings & "\n" & $successes & "\n")
+    file.close()
+
+    if colorings == successes:
+      discard
+      # TODO: Here stop working on the pattern
 
 let trialGen = arithmeticTrialGen
 
 proc main() =
   eraseScreen()
 
-  var p = 1
+  var p = 46#1
   while true:
     nextN = 1
 
     let trialSpec = trialGen(p)
+
+    if not dirExists(trialspec.outloc):
+      createDir(trialspec.outloc)
+
     for i in 0 ..< threadCount:
       workerThreads[i].createThread(work, (i: i, spec: trialSpec))
     workerThreads.joinThreads()
 
-    p.inc
+    p.inc()
 
 main()
