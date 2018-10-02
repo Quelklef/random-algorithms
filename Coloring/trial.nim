@@ -21,17 +21,32 @@ type TrialSpec* = object
   # Human-readable desc
   description*: string
 
+proc toBase(x, b: int): string =
+  if x == 0: return "0"
+  if x < 0: return "-" & (-x).toBase(b)
+  var x = x
+  var s: seq[int] = @[]
+  while x > 0:
+    let r = x mod b
+    s.add(r)
+    x = x div b
+  for c in s:
+    result &= $c
+
 proc arithmeticTrialGen*(p: int): TrialSpec =
   result.C = 2
 
-  let patternStr = p.toBin(8)
+  let patternStr = p.toBase(2)
   result.pattern = proc(d: int): Coloring =
-      result = initColoring(2, d * (patternStr.len - 1) + 1)
-      for i, c in patternStr:
-        if c == '1':
-          result[i * d] = 1
+    result = initColoring(2, d * (patternStr.len - 1) + 1)
+    for i, c in patternStr:
+      if c == '1':
+        result[i * d] = 1
 
-  result.maxN = 500
-  result.coloringCount = 100_000
+  result.coloringCount = 1_000_000
   result.outloc = "data/arithmetic/$#" % $p
   result.description = "arithmetic p=$#, pattern=$#" % [$p, $patternStr]
+
+when isMainModule:
+  for i in 0..20:
+    echo(($i).align(3), " ", arithmeticTrialGen(i).pattern(1))

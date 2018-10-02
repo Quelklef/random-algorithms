@@ -7,6 +7,7 @@ import os
 import times
 import terminal
 import tables
+import threadpool
 
 import coloring
 import find
@@ -17,107 +18,95 @@ when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
   discard readLine(stdin)
 
-const threadCount = 8
-
-var workerThreads: array[threadCount, Thread[tuple[i: int; spec: TrialSpec]]]
-var nextN: int
-var nLock: Lock
-initLock(nLock)
-
 var ioLock: Lock
 initLock(ioLock)
 
-proc put(s: string; y = 0) =
+proc put(s: string; y: int) =
   stdout.setCursorPos(0, y)
   stdout.eraseLine()
   stdout.write(s)
   stdout.flushFile()
 
-proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
-  let (i, spec) = values
+# As soon as we reach an N with colorings=successes,
+# we want to stop doing work
+# This flag says to stop doing work
+var patternFinished: bool
+
+proc work(vals: (int, int, TrialSpec)) =
+  let (i, N, spec) = vals
   var lastUpdate = 0.0  # 0 so that always updates on a new pattern
 
-  while true:
-    var N: int
-    withLock(nLock):
-      N = nextN
-      nextN.inc()
+  # Store a (count, success) tuple as data
+  var colorings = 0
+  var successes = 0
 
-    if N > spec.maxN:
-      break
+  let fileloc = spec.outloc / "$#.txt" % $N
 
-    # Store a (count, success) tuple as data
-    var colorings = 0
-    var successes = 0
+  if fileExists(fileloc):
+    let file = open(fileloc, mode = fmRead)
+    defer: file.close()
+    let existingData = file.readAll().splitLines()
+    colorings = parseInt(existingData[0])
+    successes = parseInt(existingData[1])
 
-    let fileloc = spec.outloc / "$#.txt" % $N
+  var col = initColoring(spec.C, N)
+  while colorings < spec.coloringCount:
+    col.randomize()
+    colorings += 1
+    if col.hasMMP_progression(spec.pattern):
+      successes += 1
 
-    if fileExists(fileloc):
-      let file = open(fileloc, mode = fmRead)
-      defer: file.close()
-      let existingData = file.readAll().splitLines()
-      colorings = parseInt(existingData[0])
-      successes = parseInt(existingData[1])
+    template formatPercent(x): string = (x * 100).formatFloat(format = ffDecimal, precision = 1).align(5)
 
-    var col = initColoring(spec.C, N)
-    while colorings < spec.coloringCount:
-      # Note that we're testing against t here, meaning each time we run the program
-      # we give the colorings a 'second chance' to be tolerable
+    # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
+    const pause = 0.1  # minmum time between IO updates (s)
+    if epochTime() > lastUpdate + pause:
+      lastUpdate = epochTime()
+      withLock(ioLock):
+        let aN = ($N).align(len($spec.maxN))
+        let aTrialCount = ($colorings).align(len($spec.coloringCount))
+        put("[$#] [N=$#] [Trial #$#/$#; $#%] :: $#%" %
+          [
+            spec.description,
+            aN,
+            aTrialCount,
+            $spec.coloringCount,
+            (colorings / spec.coloringCount).formatPercent,
+            (successes / colorings).formatPercent,
+          ],
+          i,
+        )
 
-      col.randomize()
-      colorings += 1
-      if col.hasMMP_progression(spec.pattern):
-        successes += 1
+  let file = open(fileloc, mode = fmWrite)
+  file.write($colorings & "\n" & $successes & "\n")
+  file.close()
 
-      template formatPercent(x): string = (x * 100).formatFloat(format = ffDecimal, precision = 1).align(5)
+  if colorings == successes:
+    patternFinished = true
 
-      # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
-      const pause = 0.5  # minmum time between IO updates (s)
-      if epochTime() > lastUpdate + pause:
-        lastUpdate = epochTime()
-        withLock(ioLock):
-          let aN = ($N).align(len($spec.maxN))
-          let aTrialCount = ($colorings).align(len($spec.coloringCount))
-          put("[Thread $#] [$#] [N=$#/$#; $#%] [Trial #$#/$#; $#%] :: $#%" %
-            [
-              $i,
-              spec.description,
-              aN,
-              $spec.maxN,
-              (N / spec.maxN).formatPercent,
-              aTrialCount,
-              $spec.coloringCount,
-              (colorings / spec.coloringCount).formatPercent,
-              (successes / colorings).formatPercent,
-            ],
-            i,
-          )
-
-    let file = open(fileloc, mode = fmWrite)
-    file.write($colorings & "\n" & $successes & "\n")
-    file.close()
-
-    if colorings == successes:
-      break
-
-let trialGen = arithmeticTrialGen
-
+const threadCount = 8
 proc main() =
   eraseScreen()
-
-  var p = 46#1
+  let trialGen = arithmeticTrialGen
+  var p = 0
   while true:
-    nextN = 1
-
     let trialSpec = trialGen(p)
+    p += 1
+    patternFinished = false
 
     if not dirExists(trialspec.outloc):
       createDir(trialspec.outloc)
 
-    for i in 0 ..< threadCount:
-      workerThreads[i].createThread(work, (i: i, spec: trialSpec))
-    workerThreads.joinThreads()
+    var threads: array[threadCount, Thread[(int, int, TrialSpec)]]
 
-    p.inc()
+    var N = 1
+    while not patternFinished:
+      for i in 0 ..< threadCount:
+        if not threads[i].running:
+          threads[i].createThread(work, (i, N, trialSpec))
+          N += 1
+
+   # Wait for work to finish
+    threads.joinThreads()
 
 main()
