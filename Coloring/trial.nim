@@ -30,8 +30,8 @@ proc toBase(x, b: int): string =
     let r = x mod b
     s.add(r)
     x = x div b
-  for c in s:
-    result &= $c
+  for i in countdown(s.len - 1, 0):
+    result &= $s[i]
 
 proc arithmeticTrialGen*(p: int): TrialSpec =
   result.C = 2

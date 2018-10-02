@@ -49,6 +49,11 @@ proc work(vals: (int, int, TrialSpec)) =
     colorings = parseInt(existingData[0])
     successes = parseInt(existingData[1])
 
+  defer:
+    let file = open(fileloc, mode = fmWrite)
+    file.write($colorings & "\n" & $successes & "\n")
+    file.close()
+
   var col = initColoring(spec.C, N)
   while colorings < spec.coloringCount:
     col.randomize()
@@ -59,14 +64,15 @@ proc work(vals: (int, int, TrialSpec)) =
     template formatPercent(x): string = (x * 100).formatFloat(format = ffDecimal, precision = 1).align(5)
 
     # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
-    const pause = 0.1  # minmum time between IO updates (s)
+    const pause = 0.3  # minmum time between IO updates (s)
     if epochTime() > lastUpdate + pause:
       lastUpdate = epochTime()
       withLock(ioLock):
         let aN = ($N).align(len($spec.maxN))
         let aTrialCount = ($colorings).align(len($spec.coloringCount))
-        put("[$#] [N=$#] [Trial #$#/$#; $#%] :: $#%" %
+        put("[Thread $#] [$#] [N=$#] [Trial #$#/$#; $#%] :: $#%" %
           [
+            $i,
             spec.description,
             aN,
             aTrialCount,
@@ -74,21 +80,28 @@ proc work(vals: (int, int, TrialSpec)) =
             (colorings / spec.coloringCount).formatPercent,
             (successes / colorings).formatPercent,
           ],
-          i,
+          i + 1,
         )
-
-  let file = open(fileloc, mode = fmWrite)
-  file.write($colorings & "\n" & $successes & "\n")
-  file.close()
 
   if colorings == successes:
     patternFinished = true
 
 const threadCount = 8
+
+var stop = false
+var stopThread: Thread[void]
+
 proc main() =
   eraseScreen()
+  put("Press <return> to exit.", 0)
+
   let trialGen = arithmeticTrialGen
   var p = 0
+
+  stopThread.createThread:
+    discard readLine(stdin)
+    quit()
+
   while true:
     let trialSpec = trialGen(p)
     p += 1
