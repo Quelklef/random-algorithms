@@ -60,7 +60,7 @@ proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
       successes = parseInt(existingData[1])
 
     var col = initColoring(spec.C, N)
-    for t in 1 .. spec.coloringCount - colorings:
+    while colorings < spec.coloringCount:
       # Note that we're testing against t here, meaning each time we run the program
       # we give the colorings a 'second chance' to be tolerable
 
@@ -69,26 +69,26 @@ proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
       if col.hasMMP_progression(spec.pattern):
         successes += 1
 
-      template formatPercent(x): string = x.formatFloat(format = ffDecimal, precision = 1).align(5)
+      template formatPercent(x): string = (x * 100).formatFloat(format = ffDecimal, precision = 1).align(5)
 
       # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
       const pause = 0.5  # minmum time between IO updates (s)
       if epochTime() > lastUpdate + pause:
         lastUpdate = epochTime()
         withLock(ioLock):
-          let trialCount = t + colorings
           let aN = ($N).align(len($spec.maxN))
-          let aTrialCount = ($trialCount).align(len($spec.coloringCount))
-          put("[Thread $#] [$#] [N=$#/$#; $#%] [Trial #$#/$#; $#%]" %
+          let aTrialCount = ($colorings).align(len($spec.coloringCount))
+          put("[Thread $#] [$#] [N=$#/$#; $#%] [Trial #$#/$#; $#%] :: $#%" %
             [
               $i,
               spec.description,
               aN,
               $spec.maxN,
-              (N / spec.maxN * 100).formatPercent,
+              (N / spec.maxN).formatPercent,
               aTrialCount,
               $spec.coloringCount,
-              (trialCount / spec.coloringCount * 100).formatPercent,
+              (colorings / spec.coloringCount).formatPercent,
+              (successes / colorings).formatPercent,
             ],
             i,
           )
@@ -98,8 +98,7 @@ proc work(values: tuple[i: int; spec: TrialSpec]) {.thread.} =
     file.close()
 
     if colorings == successes:
-      discard
-      # TODO: Here stop working on the pattern
+      break
 
 let trialGen = arithmeticTrialGen
 
