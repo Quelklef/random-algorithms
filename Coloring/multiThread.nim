@@ -14,6 +14,8 @@ import find
 import trial
 from ../util import `*`, times, `{}`, createFile, numLines, optParam
 
+const threadCount = 8
+
 when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
   discard readLine(stdin)
@@ -32,7 +34,7 @@ proc put(s: string; y: int) =
 # This flag says to stop doing work
 var patternFinished: bool
 
-proc work(vals: (int, int, TrialSpec)) =
+proc work(vals: (int, int, TrialSpec)) {.thread.} =
   let (i, N, spec) = vals
   var lastUpdate = 0.0  # 0 so that always updates on a new pattern
 
@@ -46,8 +48,13 @@ proc work(vals: (int, int, TrialSpec)) =
     let file = open(fileloc, mode = fmRead)
     defer: file.close()
     let existingData = file.readAll().splitLines()
-    colorings = parseInt(existingData[0])
-    successes = parseInt(existingData[1])
+    try:
+      colorings = parseInt(existingData[0])
+      successes = parseInt(existingData[1])
+    except ValueError:
+      put("WARNING: data in " & fileloc & " corrupt; overwriting", threadCount + 1)
+      colorings = 0
+      successes = 0
 
   defer:
     let file = open(fileloc, mode = fmWrite)
@@ -85,8 +92,6 @@ proc work(vals: (int, int, TrialSpec)) =
 
   if colorings == successes:
     patternFinished = true
-
-const threadCount = 8
 
 var stop = false
 var stopThread: Thread[void]
