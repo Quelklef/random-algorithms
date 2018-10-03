@@ -10,7 +10,8 @@ import time
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--meta-only", help="Do not make p-graphs", dest="do_pgraphs", action="store_false")
+parser.add_argument("--meta-only", help="Do not make p graphs", dest="do_pgraphs", action="store_false")
+parser.add_argument("--no-p-fit", help="Do not plot fitted functions over p graphs", dest="do_p_fit", action="store_false")
 args = parser.parse_args()
 
 # Make matplotlib faster
@@ -89,7 +90,7 @@ for dir in os.listdir(source_dir):
     #(y0, A, k, x0), covariance = curve_fit(exponential, xs, ys, p0=[max(ys), 1, 1/3, avg(xs)], maxfev=1000000)
     (y0, A, k, x0), covariance = curve_fit(logistic, xs, ys, p0=[-.2, 1.2, .3, .3 * avg(xs)], maxfev=1000000)
     sample_xs = np.linspace(min(xs), max(xs), 20)
-    if args.do_pgraphs:
+    if args.do_pgraphs and args.do_p_fit:
       plt.plot(sample_xs, logistic(sample_xs, y0, A, k, x0))
 
   if args.do_pgraphs:
@@ -143,15 +144,16 @@ def is_power(n, b):
 
 os.makedirs(os.path.join(target_dir, "all"), exist_ok=True)
 for attr in attrs:
+  if attr[0] == "_": continue
   ys = attr_lists[attr]
 
   plt.suptitle(f"P vs {attr}")
   plt.xlabel("P")
   plt.ylabel(attr)
 
-  plt.scatter(ps, ys)
-  # Plot VDW patterns in red
-  if attr == "V":
+  plt.scatter(ps, ys, color=['red' if is_power(p + 1, 2) else 'C0' for p in ps])
+  """if attr == "V":
+    # Plot VDW patterns in red
     VDW_ps, VDW_ys = unzip([(p, y) for p, y in zip(ps, ys) if is_power(p + 1, 2)])
     plt.scatter(VDW_ps, VDW_ys, color='red')
     (y0, A, k, x0), covariance = curve_fit(monomial, VDW_ps, VDW_ys, p0=[0, 5, 3, 0], maxfev=1000000)
@@ -161,7 +163,7 @@ for attr in attrs:
     f.close()
 
     sample_ps = np.linspace(min(ps), max(ps), 20, dtype=np.float64)
-    plt.plot(sample_ps, monomial(sample_ps, y0, A, k, x0), color='red')
+    plt.plot(sample_ps, monomial(sample_ps, y0, A, k, x0), color='red')"""
 
   plot_loc = os.path.join(target_dir, "all", f"{attr}-plot.png")
   plt.overwritefig(plot_loc, bbox_inches='tight')
