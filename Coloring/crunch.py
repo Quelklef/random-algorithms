@@ -156,7 +156,7 @@ for attr in attrs:
     plt.scatter(VDW_ps, VDW_ys, color='red')
     (y0, A, k, x0), covariance = curve_fit(monomial, VDW_ps, VDW_ys, p0=[0, 5, 3, 0], maxfev=1000000)
 
-    f = open(os.path.join(target_dir, "all", "A-fit.txt"), "w")
+    f = open(os.path.join(target_dir, "all", f"{attr}-fit.txt"), "w")
     json.dump({"y0": y0, "A": A, "k": k, "x0": x0}, f)
     f.close()
 
