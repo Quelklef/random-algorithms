@@ -10,7 +10,7 @@ import time
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--skip", help="Skip to metadata parsing", action="store_true")
+parser.add_argument("--meta-only", help="Do not make p-graphs", dest="do_pgraphs", action="store_false")
 args = parser.parse_args()
 
 # Make matplotlib faster
@@ -45,73 +45,75 @@ def monomial(x, y0, A, k, x0):
 fitting = logistic
 
 # For each p
-if not args.skip:
-  for dir in os.listdir(source_dir):
-    if not os.path.isdir(os.path.join(source_dir, dir)): continue
-    p = int(dir)
+for dir in os.listdir(source_dir):
+  if not os.path.isdir(os.path.join(source_dir, dir)): continue
+  p = int(dir)
 
-    # { N => success_rate }
-    percents = {}
-    V = None
+  # { N => success_rate }
+  percents = {}
+  V = None
 
-    # For each N
-    for filename in os.listdir(os.path.join(source_dir, dir)):
-      if os.path.isdir(os.path.join(source_dir, dir, filename)): continue
-      N = int(filename[:-len(".txt")])
-      pair = open(os.path.join(source_dir, dir, filename)).read().split("\n")
-      try:
-        attempts = int(pair[0])
-        successes = int(pair[1])
-      except ValueError:
-        print(f"WARNING: data in {os.path.join(source_dir, dir, filename)} corrupt; ignoring.")
-      else:
-        success_rate = successes / attempts
+  # For each N
+  for filename in os.listdir(os.path.join(source_dir, dir)):
+    if os.path.isdir(os.path.join(source_dir, dir, filename)): continue
+    N = int(filename[:-len(".txt")])
+    pair = open(os.path.join(source_dir, dir, filename)).read().split("\n")
+    try:
+      attempts = int(pair[0])
+      successes = int(pair[1])
+    except ValueError:
+      print(f"WARNING: data in {os.path.join(source_dir, dir, filename)} corrupt; ignoring.")
+    else:
+      success_rate = successes / attempts
 
-        # We ignore 0% and 100% values because it is known that all
-        # x-values below the recorded x have 0% and all x-values above
-        # the recorded x have 100%
-        if attempts != successes != 0:
-          percents[N] = success_rate
-        elif attempts == successes:
-          V = N
+      # We ignore 0% and 100% values because it is known that all
+      # x-values below the recorded x have 0% and all x-values above
+      # the recorded x have 100%
+      if attempts != successes != 0:
+        percents[N] = success_rate
+      elif attempts == successes:
+        V = N
 
-    xs, ys = unzip(percents.items()) if percents else ([], [])
+  xs, ys = unzip(percents.items()) if percents else ([], [])
 
+  if args.do_pgraphs:
     # set y-axis values
     plt.gca().set_ylim([0, 1])
     plt.suptitle(f"P = {p}")
     plt.xlabel("N")
     plt.ylabel("%")
 
-    # Fit to function if possible
-    y0 = A = k = x0 = None
-    if len(xs) >= 4:
-      #(y0, A, k, x0), covariance = curve_fit(exponential, xs, ys, p0=[max(ys), 1, 1/3, avg(xs)], maxfev=1000000)
-      (y0, A, k, x0), covariance = curve_fit(logistic, xs, ys, p0=[-.2, 1.2, .3, .3 * avg(xs)], maxfev=1000000)
-      sample_xs = np.linspace(min(xs), max(xs), 20)
+  # Fit to function if possible
+  y0 = A = k = x0 = None
+  if len(xs) >= 4:
+    #(y0, A, k, x0), covariance = curve_fit(exponential, xs, ys, p0=[max(ys), 1, 1/3, avg(xs)], maxfev=1000000)
+    (y0, A, k, x0), covariance = curve_fit(logistic, xs, ys, p0=[-.2, 1.2, .3, .3 * avg(xs)], maxfev=1000000)
+    sample_xs = np.linspace(min(xs), max(xs), 20)
+    if args.do_pgraphs:
       plt.plot(sample_xs, logistic(sample_xs, y0, A, k, x0))
 
+  if args.do_pgraphs:
     plt.scatter(xs, ys)
     loc = os.path.join(target_dir, f"{p:05}-scatter.png")
     plt.overwritefig(loc, bbox_inches='tight')
     print("Scatterplot " + loc + " generated.")
     plt.clf()
 
-    # Save metadata
-    meta = {
-      "V": V,  # First N with 100% success rate
-      "attempts": len(xs),
+  # Save metadata
+  meta = {
+    "V": V,  # First N with 100% success rate
+    "attempts": len(xs),
 
-      "y0": y0,
-      "A": A,
-      "k": k,
-      "x0": x0,
-    }
-    meta_loc = os.path.join(target_dir, f"{p:05}-meta.txt")
-    f = open(meta_loc, "w")
-    json.dump(meta, f)
-    f.close()
-    print("Metadata file " + meta_loc + " generated.")
+    "y0": y0,
+    "A": A,
+    "k": k,
+    "x0": x0,
+  }
+  meta_loc = os.path.join(target_dir, f"{p:05}-meta.txt")
+  f = open(meta_loc, "w")
+  json.dump(meta, f)
+  f.close()
+  print("Metadata file " + meta_loc + " generated.")
 
 # Now we make graphs out of the metadata
 
