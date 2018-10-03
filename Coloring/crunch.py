@@ -59,17 +59,21 @@ if not args.skip:
       if os.path.isdir(os.path.join(source_dir, dir, filename)): continue
       N = int(filename[:-len(".txt")])
       pair = open(os.path.join(source_dir, dir, filename)).read().split("\n")
-      attempts = int(pair[0])
-      successes = int(pair[1])
-      success_rate = successes / attempts
+      try:
+        attempts = int(pair[0])
+        successes = int(pair[1])
+      except ValueError:
+        print(f"WARNING: data in {os.path.join(source_dir, dir, filename)} corrupt; ignoring.")
+      else:
+        success_rate = successes / attempts
 
-      # We ignore 0% and 100% values because it is known that all
-      # x-values below the recorded x have 0% and all x-values above
-      # the recorded x have 100%
-      if attempts != successes != 0:
-        percents[N] = success_rate
-      elif attempts == successes:
-        V = N
+        # We ignore 0% and 100% values because it is known that all
+        # x-values below the recorded x have 0% and all x-values above
+        # the recorded x have 100%
+        if attempts != successes != 0:
+          percents[N] = success_rate
+        elif attempts == successes:
+          V = N
 
     xs, ys = unzip(percents.items()) if percents else ([], [])
 
