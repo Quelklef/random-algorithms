@@ -13,32 +13,34 @@ var tCount = initTable[tuple[n: int, p: float], float]()
 var gCount = initTable[tuple[n: int, p: float], float]()
 var npPair: seq[tuple[n: int, p: float]] = @[]
 
-var csv: CsvParser
-csv.open("Turan_Stat.txt")
-csv.readHeaderRow()
+var stat: CsvParser
+stat.open("Turan_Stat.txt")
+stat.readHeaderRow()
 
 var n: int
 var p: float
 var t: float
 var g: float
 
-while csv.readRow():
+while stat.readRow():
     try:
-      n = parseInt(rowEntry(csv, "n"))
-      p = parseFloat(rowEntry(csv, "p"))
-      t = parseFloat(rowEntry(csv, "TuranDiff"))
-      g = parseFloat(rowEntry(csv, "GreedyDiff"))
+      n = parseInt(rowEntry(stat, "n"))
+      p = parseFloat(rowEntry(stat, "p"))
+      t = parseFloat(rowEntry(stat, "TuranDiff"))
+      g = parseFloat(rowEntry(stat, "GreedyDiff"))
 
       meanT[(n,p)] = t
       meanG[(n,p)] = g
 
       npPair.add((n,p))
     except ValueError:
-      echo "Got (", n, ", ", p, ") for (n,p)"
+      echo "Got (", rowEntry(stat, "n"), ", ", rowEntry(stat, "p"), ") for (n,p) and ", rowEntry(stat, "TuranDiff"), ", ", rowEntry(stat, "GreedyDiff")
 
+stat.close
+var csv: CsvParser
 csv.open("Turan_X.txt")
 csv.readHeaderRow()
-#[
+
 while csv.readRow():
   try:
     n = parseInt(rowEntry(csv, "n"))
@@ -66,11 +68,10 @@ while csv.readRow():
     else:
       gCount[(n,p)] = 1
   except:
-    echo "Got (", n, ", ", p, ") for (n,p)"
+    echo "Got (", rowEntry(csv, "n"), ", ", rowEntry(csv, "p"), ") for (n,p) and ", rowEntry(csv, "TuranDiff"), ", ", rowEntry(csv, "GreedyDiff")
 csv.close
 
-let file = open("Real_Stat", mode = fmAppend)
+let file = open("Real_Stat.txt", mode = fmAppend)
 
 for tup in npPair:
   file.writeRow(tup.n, tup.p, sqrt(tDiffSum[tup] / tCount[tup]), sqrt(gDiffSum[tup] / gCount[tup]))
-]#
