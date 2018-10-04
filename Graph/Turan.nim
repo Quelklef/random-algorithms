@@ -101,7 +101,7 @@ proc probTuran*(p: float): tuple[turanDiff: float, shuffles: int, greedyDiff: fl
   e = numE(g)
   var turanNum = float(n)/(2*e/n + 1)
   var numS = 1
-  while float(iSet(g)) < turanNum:
+  while float(findIndSetLeft(g).len) < turanNum:
     numS += 1
     shuffle(g)
   return (turanDiff: float(iSet(g)) - turanNum, shuffles: numS, greedyDiff: float(greedyISet(g)) - turanNum)
@@ -132,6 +132,7 @@ proc trials*(w: int) {.thread.} =
 
     let fileName = "Turan_" & intToStr(n) & "_" & p.formatFloat(ffDecimal, 2) & ".txt"
     let file = open(fileName, mode = fmAppend)
+    file.writeRow("n", "p", "Shuffles", "TuranDiff", "GreedyDiff")
     var startTime: float
     try:
       startTime = cpuTime()
@@ -139,6 +140,7 @@ proc trials*(w: int) {.thread.} =
         let (t, s, g) = probTuran(p)
         if oneFile:
           file.writeRow(n, p, s, t, g)
+          #file.writeRow(n, p, t, g) #don't really need data on shuffles
         else:
           file.writeRow(p, s, t, g)
         if stat:
