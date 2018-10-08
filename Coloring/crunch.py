@@ -35,6 +35,12 @@ parser.add_argument(
   dest="update_p",
   action="store_true"
 )
+parser.add_argument(
+  "--highlight",
+  help="Highlight VDW numbers in all-graphs",
+  dest="highlight_vdw_numbers",
+  action="store_true",
+)
 args = parser.parse_args()
 
 # Make matplotlib faster
@@ -216,21 +222,21 @@ if args.do_meta:
       special,
     ),
     (
-      "P-y0_A.png",
-      "P vs y0/A",
-      "P",
-      "y0/A",
-      itemgetter("P"),
-      lambda d: d["y0"] / d["A"] if d["y0"] is not None and d["A"] is not None else None,
-      special,
-    ),
-    (
       "y0-A.png",
       "y0 vs A",
       "0",
       "A",
       itemgetter("y0"),
       itemgetter("A"),
+      None,
+    ),
+    (
+      "x0-V.png",
+      "x0 vs V",
+      "x0",
+      "V",
+      itemgetter("x0"),
+      itemgetter("V"),
       None,
     ),
   ]
@@ -249,7 +255,7 @@ if args.do_meta:
       s=1,
     )
 
-    if special:
+    if args.highlight_vdw_numbers and special:
       sp_predicate, sp_color, sp_size = special
       sp_xs, sp_ys = unzip([(x, y) for x, y in zip(xs, ys) if sp_predicate(x)])
       plt.scatter(
