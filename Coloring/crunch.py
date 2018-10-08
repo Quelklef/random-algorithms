@@ -69,7 +69,8 @@ fitting = logistic
 
 # For each p
 if args.make_pgraphs or args.do_meta:
-  for dir in os.listdir(source_dir):
+  # Sort simply for aestetic/user experience reasons
+  for dir in sorted(os.listdir(source_dir), key=int):
     if not os.path.isdir(os.path.join(source_dir, dir)): continue
     p = int(dir)
     print(f"Analyzing p={p}")
