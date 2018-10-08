@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib
 import time
 import argparse
+from operator import itemgetter
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -128,9 +129,10 @@ if args.make_pgraphs or args.do_meta:
           print("Scatterplot " + loc + " generated.")
       plt.clf()
 
-      if args.do_meta and (args.update_p or not os.apth.isfile(meta_loc)):
+      if args.do_meta and (args.update_p or not os.path.isfile(meta_loc)):
         # Save metadata
         meta = {
+          "P": p,
           "V": V,  # First N with 100% success rate
           "attempts": len(xs),
 
@@ -146,22 +148,14 @@ if args.make_pgraphs or args.do_meta:
 
 if args.do_meta:
   # Now we make graphs out of the metadata
-  p_data = {}
+  data = []
   for filename in os.listdir(target_dir):
     if not os.path.isfile(os.path.join(target_dir, filename)): continue
     if not filename.endswith("-meta.txt"): continue
     p = int(filename[:-len("-meta.txt")])
     f = open(os.path.join(target_dir, filename))
-    p_data[p] = json.loads(f.read())
+    data.append(json.loads(f.read()))
     f.close()
-
-  ps = sorted(p_data.keys())
-  attr_lists = {}
-  attrs = p_data[ps[0]].keys()
-  for attr in attrs:
-    attr_lists[attr] = []
-    for p in ps:
-      attr_lists[attr].append(p_data[p][attr])
 
   def is_power(n, b):
     if n < 1:
@@ -170,40 +164,109 @@ if args.do_meta:
       return True
     return is_power(n / b, b)
 
+  special = (
+    lambda p: is_power(p + 1, 2),
+    'r',
+    20,
+  )
+  graphs = [
+    (
+      "P-V.png",
+      "P vs V",
+      "P",
+      "V",
+      itemgetter("P"),
+      itemgetter("V"),
+      special,
+    ),
+    (
+      "P-y0.png",
+      "P vs y0",
+      "P",
+      "y0",
+      itemgetter("P"),
+      itemgetter("y0"),
+      special,
+    ),
+    (
+      "P-A.png",
+      "P vs A",
+      "P",
+      "A",
+      itemgetter("P"),
+      itemgetter("A"),
+      special,
+    ),
+    (
+      "P-k.png",
+      "P vs k",
+      "P",
+      "k",
+      itemgetter("P"),
+      itemgetter("k"),
+      special,
+    ),
+    (
+      "P-x0.png",
+      "P vs x0",
+      "P",
+      "x0",
+      itemgetter("P"),
+      itemgetter("x0"),
+      special,
+    ),
+    (
+      "P-y0_A.png",
+      "P vs y0/A",
+      "P",
+      "y0/A",
+      itemgetter("P"),
+      lambda d: d["y0"] / d["A"] if d["y0"] is not None and d["A"] is not None else None,
+      special,
+    ),
+    (
+      "y0-A.png",
+      "y0 vs A",
+      "0",
+      "A",
+      itemgetter("y0"),
+      itemgetter("A"),
+      None,
+    ),
+  ]
+
   os.makedirs(os.path.join(target_dir, "all"), exist_ok=True)
-  for attr in attrs:
-    if attr[0] == "_": continue
-    ys = attr_lists[attr]
+  for filename, title, x_label, y_label, x_get, y_get, special in graphs:
+    plt.suptitle(title)
 
-    plt.suptitle(f"P vs {attr}")
-    plt.xlabel("P")
-    plt.ylabel(attr)
-
+    xs = np.array(list(map(x_get, data)))
+    ys = np.array(list(map(y_get, data)))
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     plt.scatter(
-      ps,
+      xs,
       ys,
-      color='C0',
-      s=.5,
+      s=1,
     )
-    plt.scatter(
-      *unzip([(p, y) for p, y in zip(ps, ys) if is_power(p + 1, 2)]),
-      color='red',
-      s=15,
-    )
-    """if attr == "V":
-      # Plot VDW patterns in red
-      VDW_ps, VDW_ys = unzip([(p, y) for p, y in zip(ps, ys) if is_power(p + 1, 2)])
-      plt.scatter(VDW_ps, VDW_ys, color='red')
-      (y0, A, k, x0), covariance = curve_fit(monomial, VDW_ps, VDW_ys, p0=[0, 5, 3, 0], maxfev=1000000)
 
-      f = open(os.path.join(target_dir, "all", f"{attr}-fit.txt"), "w")
-      json.dump({"y0": y0, "A": A, "k": k, "x0": x0}, f)
-      f.close()
+    if special:
+      sp_predicate, sp_color, sp_size = special
+      sp_xs, sp_ys = unzip([(x, y) for x, y in zip(xs, ys) if sp_predicate(x)])
+      plt.scatter(
+        np.array(sp_xs),
+        np.array(sp_ys),
+        color=sp_color,
+        s=sp_size,
+      )
 
-      sample_ps = np.linspace(min(ps), max(ps), 20, dtype=np.float64)
-      plt.plot(sample_ps, monomial(sample_ps, y0, A, k, x0), color='red')"""
-
-    plot_loc = os.path.join(target_dir, "all", f"{attr}-plot.png")
+    plot_loc = os.path.join(target_dir, "all", filename)
     plt.overwritefig(plot_loc, bbox_inches='tight')
     print(f"All-plot {plot_loc} generated.")
     plt.clf()
+
+#    plt.scatter(
+#      *unzip([(p, y) for p, y in zip(ps, ys) if is_power(p + 1, 2)]),
+#      color='red',
+#      s=15,
+#    )
+
