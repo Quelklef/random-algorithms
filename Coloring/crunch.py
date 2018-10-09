@@ -41,6 +41,11 @@ parser.add_argument(
   dest="highlight_vdw_numbers",
   action="store_true",
 )
+parser.add_argument(
+  "--p-pred",
+  help="Only do certain ps based on a predicate such as 'p==3' or 'p>100'",
+  dest="p_pred",
+)
 args = parser.parse_args()
 
 # Make matplotlib faster
@@ -80,6 +85,11 @@ if args.make_pgraphs or args.do_meta:
   for dir in sorted(os.listdir(source_dir), key=int):
     if not os.path.isdir(os.path.join(source_dir, dir)): continue
     p = int(dir)
+    if args.p_pred:
+      if not eval(args.p_pred):
+        print(f"Skipping p={p}")
+        continue
+
     print(f"Analyzing p={p}")
     meta_loc = os.path.join(target_dir, f"{p:05}-meta.txt")
 
