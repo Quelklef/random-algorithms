@@ -46,6 +46,11 @@ parser.add_argument(
   help="Only do certain ps based on a predicate such as 'p==3' or 'p>100'",
   dest="p_pred",
 )
+parser.add_argument(
+  "--p-filename",
+  help="Filename for p, such as '{p}.png' or (the default) 'scatter-{p:05}.png'.",
+  dest="p_filename",
+)
 args = parser.parse_args()
 
 # Make matplotlib faster
@@ -76,6 +81,12 @@ def logistic(x, y0, A, k, x0):
   return y0 + A / (1 + np.exp(-k * (x - x0)))
 def monomial(x, y0, A, k, x0):
   return y0 + A * np.power(x - x0, k)
+def logarithmic(x, y0, A, k, x0):
+  return y0 + A * np.log(k * (x - x0))
+def linear(x, y0, A):
+  return y0 + A * x
+def reciprocal(x, y0, A):
+  return y0 + A / x
 
 fitting = logistic
 
@@ -91,7 +102,7 @@ if args.make_pgraphs or args.do_meta:
         continue
 
     print(f"Analyzing p={p}")
-    meta_loc = os.path.join(target_dir, f"{p:05}-meta.txt")
+    meta_loc = os.path.join(target_dir, f"meta-{p:05}.txt")
 
     if args.make_pgraphs or (args.do_meta and (args.update_p or not os.path.isfile(meta_loc))):
       # { N => success_rate }
@@ -124,7 +135,7 @@ if args.make_pgraphs or args.do_meta:
       if args.make_pgraphs:
         # set y-axis values
         plt.gca().set_ylim([0, 1])
-        plt.suptitle(f"P = {p}")
+        plt.suptitle(f"P = {p}; pattern = {p:b}")
         plt.xlabel("N")
         plt.ylabel("%")
 
@@ -133,14 +144,14 @@ if args.make_pgraphs or args.do_meta:
       if len(xs) >= 4:
         #(y0, A, k, x0), covariance = curve_fit(exponential, xs, ys, p0=[max(ys), 1, 1/3, avg(xs)], maxfev=1000000)
         (y0, A, k, x0), covariance = curve_fit(logistic, xs, ys, p0=[-.2, 1.2, .3, .3 * avg(xs)], maxfev=1000000)
-        if args.make_pgraphs and args.do_fit:
-          sample_xs = np.linspace(min(xs), max(xs), 20)
-          plt.plot(sample_xs, logistic(sample_xs, y0, A, k, x0), color='r')
 
       if args.make_pgraphs:
-        loc = os.path.join(target_dir, f"{p:05}-scatter.png")
+        loc = os.path.join(target_dir, (args.p_filename or "scatter-{p:05}.png").format(p=p))
         if args.update_p or not os.path.isfile(loc):
-          plt.scatter(xs, ys, s=4)
+          plt.scatter(xs, ys, s=10, zorder=1)
+          if args.do_fit and len(xs) >= 4:
+            sample_xs = np.linspace(min(xs), max(xs), 200)
+            plt.plot(sample_xs, logistic(sample_xs, y0, A, k, x0), color='r', linewidth=1, zorder=2)
           plt.overwritefig(loc, bbox_inches='tight')
           print("Scatterplot " + loc + " generated.")
       plt.clf()
@@ -167,8 +178,8 @@ if args.do_meta:
   data = []
   for filename in os.listdir(target_dir):
     if not os.path.isfile(os.path.join(target_dir, filename)): continue
-    if not filename.endswith("-meta.txt"): continue
-    p = int(filename[:-len("-meta.txt")])
+    if not filename.startswith("meta-"): continue
+    p = int(filename[len("meta-"):-len(".txt")])
     f = open(os.path.join(target_dir, filename))
     data.append(json.loads(f.read()))
     f.close()
@@ -185,15 +196,53 @@ if args.do_meta:
     'r',
     20,
   )
+  constTrue = lambda d: True
+  VDW_only = lambda d: is_power(d["P"] + 1, 2)
   graphs = [
     (
-      "P-V.png",
+      "P-V.png",  # filename
+      "P vs V",  # title
+      "P",  # x axis title
+      "V",  # y axis title
+      itemgetter("P"),  # map dict -> x value
+      constTrue,  # filter dict -> bool
+      itemgetter("V"),  # map dict -> y value
+      special,  # colors (function of X, not dict)
+      None, # curve fitting -- (curve, p0)
+    ),
+    (
+      "P-V-fitted.png",
       "P vs V",
       "P",
       "V",
       itemgetter("P"),
+      VDW_only,
       itemgetter("V"),
-      special,
+      (constTrue, 'C0', 20),
+      (logarithmic, [0, 100, 2, -1]),
+    ),
+    (
+      "kW-V.png",
+      "kW vs V",
+      "kW",
+      "V",
+      lambda d: len(bin(d["P"])) - 2,
+      VDW_only,
+      itemgetter("V"),
+      (constTrue, 'r', 20),
+      None,
+    ),
+    (
+      "kW-V-fitted.png",
+      "kW vs V",
+      "kW",
+      "V",
+      lambda d: len(bin(d["P"])) - 2,
+      VDW_only,
+      itemgetter("V"),
+      (constTrue, 'C0', 20),
+      # y0 A k x0
+      ((lambda x, y0, A, k, x0: y0 + A * ((x * (2 ** (k * (x - x0) - 1))) ** .5)), [0, 2, 1, 0]),
     ),
     (
       "P-y0.png",
@@ -201,8 +250,21 @@ if args.do_meta:
       "P",
       "y0",
       itemgetter("P"),
+      constTrue,
       itemgetter("y0"),
       special,
+      None,
+    ),
+    (
+      "P-y0-fitted.png",
+      "P vs y0",
+      "P",
+      "y0",
+      itemgetter("P"),
+      VDW_only,
+      itemgetter("y0"),
+      (constTrue, 'C0', 20),
+      (linear, [1, 1]),
     ),
     (
       "P-A.png",
@@ -210,8 +272,21 @@ if args.do_meta:
       "P",
       "A",
       itemgetter("P"),
+      constTrue,
       itemgetter("A"),
       special,
+      None,
+    ),
+    (
+      "P-A-fitted.png",
+      "P vs A",
+      "P",
+      "A",
+      itemgetter("P"),
+      VDW_only,
+      itemgetter("A"),
+      (constTrue, 'C0', 20),
+      (linear, [1, 1]),
     ),
     (
       "P-k.png",
@@ -219,8 +294,24 @@ if args.do_meta:
       "P",
       "k",
       itemgetter("P"),
+      constTrue,
       itemgetter("k"),
       special,
+      None,
+    ),
+    (
+      "P-k-fitted.png",
+      "P vs k",
+      "P",
+      "k",
+      itemgetter("P"),
+      VDW_only,
+      itemgetter("k"),
+      (constTrue, 'C0', 20),
+      #(logarithmic, [0, -1, 1, 0]),
+      (reciprocal, [50, 50]),
+      #(exponential, [0, .1, -1, 10]),
+      #None,
     ),
     (
       "P-x0.png",
@@ -228,16 +319,31 @@ if args.do_meta:
       "P",
       "x0",
       itemgetter("P"),
+      constTrue,
       itemgetter("x0"),
       special,
+      None,
+    ),
+    (
+      "P-x0-fitted.png",
+      "P vs x0",
+      "P",
+      "x0",
+      itemgetter("P"),
+      VDW_only,
+      itemgetter("x0"),
+      (constTrue, 'C0', 20),
+      (logarithmic, [1, 1, 1, -1]),
     ),
     (
       "y0-A.png",
       "y0 vs A",
-      "0",
+      "y0",
       "A",
       itemgetter("y0"),
+      constTrue,
       itemgetter("A"),
+      None,
       None,
     ),
     (
@@ -246,17 +352,37 @@ if args.do_meta:
       "x0",
       "V",
       itemgetter("x0"),
+      constTrue,
       itemgetter("V"),
+      None,
+      None,
+    ),
+    (
+      "y0-over-A.png",
+      "P vs y0/A",
+      "P",
+      "y0/A",
+      itemgetter("P"),
+      constTrue,
+      lambda d: d["y0"] / d["A"] if d["y0"] and d["A"] else None,
+      None,
       None,
     ),
   ]
 
   os.makedirs(os.path.join(target_dir, "all"), exist_ok=True)
-  for filename, title, x_label, y_label, x_get, y_get, special in graphs:
+  for filename, title, x_label, y_label, x_get, filter_f, y_get, special, fitting in graphs:
+    print("######", filename)
     plt.suptitle(title)
 
-    xs = np.array(list(map(x_get, data)))
-    ys = np.array(list(map(y_get, data)))
+    filtered_data = list(filter(filter_f, data))
+    filtered_data = list(filter(
+      # Can be None if unable to fit curve due to <4 values
+      lambda d: x_get(d) is not None and y_get(d) is not None
+      , filtered_data
+    ))
+    xs = np.array(list(map(x_get, filtered_data)))
+    ys = np.array(list(map(y_get, filtered_data)))
     plt.xlabel(x_label)
     plt.ylabel(y_label)
     plt.scatter(
@@ -275,14 +401,16 @@ if args.do_meta:
         s=sp_size,
       )
 
+    if fitting:
+      fit_func, p0 = fitting
+      sample_xs = np.linspace(min(xs), max(xs), 200)
+      params, covariance = curve_fit(fit_func, xs, ys, p0=p0, maxfev=1000000)
+      print(params)
+      #print(covariance)
+      plt.plot(sample_xs, fit_func(sample_xs, *params), color='r', linewidth=1, zorder=2)
+
     plot_loc = os.path.join(target_dir, "all", filename)
     plt.overwritefig(plot_loc, bbox_inches='tight')
     print(f"All-plot {plot_loc} generated.")
     plt.clf()
-
-#    plt.scatter(
-#      *unzip([(p, y) for p, y in zip(ps, ys) if is_power(p + 1, 2)]),
-#      color='red',
-#      s=15,
-#    )
 

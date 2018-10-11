@@ -14,7 +14,7 @@ import find
 import trial
 from ../util import `*`, times, `{}`, createFile, numLines, optParam
 
-const threadCount = 8
+const threadCount = 16
 
 when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
@@ -48,7 +48,7 @@ proc work(id: int) {.thread.} =
     let (p, N, spec) = assignments[id].recv()
 
     # Store a (count, success) tuple as data
-    var colorings = 0
+    var attempts = 0
     var successes = 0
 
     let fileloc = spec.outloc / "$#.txt" % $N
@@ -58,48 +58,49 @@ proc work(id: int) {.thread.} =
       defer: file.close()
       let existingData = file.readAll().splitLines()
       try:
-        colorings = parseInt(existingData[0])
+        attempts = parseInt(existingData[0])
         successes = parseInt(existingData[1])
       except ValueError:
         put("WARNING: data in " & fileloc & " corrupt; overwriting", threadCount + 1)
-        colorings = 0
+        attempts = 0
         successes = 0
 
     defer:
       let file = open(fileloc, mode = fmWrite)
-      file.write($colorings & "\n" & $successes & "\n")
+      file.write($attempts & "\n" & $successes & "\n")
       file.close()
 
     var col = initColoring(spec.C, N)
-    while colorings < spec.coloringCount:
+    while attempts < spec.coloringCount:
       col.randomize()
-      colorings += 1
+      attempts += 1
       if col.hasMMP_progression(spec.pattern):
         successes += 1
 
-      template formatPercent(x): string = (x * 100).formatFloat(format = ffDecimal, precision = 1).align(5)
+      template formatPercent(x: float, p = 1): string = (x * 100).formatFloat(format = ffDecimal, precision = p).align(4 + p)
 
       # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
-      const pause = 0.3  # minmum time between IO updates (s)
+      const pause = 1  # minmum time between IO updates (s)
       if epochTime() > lastUpdate + pause:
         lastUpdate = epochTime()
         withLock(ioLock):
           let aN = ($N).align(len($spec.maxN))
-          let aTrialCount = ($colorings).align(len($spec.coloringCount))
+          let aId = ($id).align(len($threadCount))
+          let aTrialCount = ($attempts).align(len($spec.coloringCount))
           put("[Thread $#] [$#] [N=$#] [Trial #$#/$#; $#%] :: $#%" %
             [
-              $id,
+              aId,
               spec.description,
               aN,
               aTrialCount,
               $spec.coloringCount,
-              (colorings / spec.coloringCount).formatPercent,
-              (successes / colorings).formatPercent,
+              (attempts / spec.coloringCount).formatPercent,
+              (successes / attempts).formatPercent(5),
             ],
             id + 1,
           )
 
-    if colorings == successes:
+    if attempts == successes:
       responses[id].send(p)
 
 proc main() =
