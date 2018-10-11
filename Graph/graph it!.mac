@@ -34,6 +34,8 @@ DO K1 = 1:50 #Number of graphs (ex 1:10 means 10 graphs)
    OVERLAY;
    GSAVE K5;
    PNGH.
+   GMANAGER;
+   CLOSE.
 ENDDO
 
 ENDMACRO
