@@ -1,10 +1,11 @@
 """
 Usage:
-  crunch p (metafiles | graph | both) [--for <pred>] [--no-fit] [--out <loc>] [--redo]
-  crunch meta [--no-highlight]
+  crunch p (metafiles | graph | both) [--for <pred>] [--no-fit] [--out <loc>] [--redo] [--quiet]
+  crunch meta [--no-highlight] [--quiet]
 
 Options:
   -h --help        Show this screen.
+  --quiet          No console output.
 
   p                Work on ps.
   metafiles        Generate metafiles.
@@ -20,7 +21,7 @@ Options:
 """
 
 import os
-import json
+import rapidjson
 from scipy.optimize import curve_fit
 import numpy as np
 import math
@@ -35,6 +36,10 @@ args = docopt(__doc__)
 matplotlib.use('TkAgg')
 
 # Util functions
+
+if args["--quiet"]:
+  # lol
+  print = lambda *args, **kwargs: None
  
 def unzip(l):
   return map(list, zip(*l))
@@ -179,7 +184,7 @@ if args["p"]:
         }
 
         f = open(meta_fileloc, "w")
-        json.dump(meta, f)
+        rapidjson.dump(meta, f)
         f.close()
         print("Metadata file " + meta_fileloc + " generated.")
 
@@ -194,7 +199,7 @@ def iter_meta():
     f = open(os.path.join(target_dir, filename))
     data = f.read()
     f.close()
-    yield json.loads(data)
+    yield rapidjson.loads(data)
 
 metagraphs = []
 
@@ -213,8 +218,15 @@ def fit(xs, ys, func, p0):
 def is_VDW(d):
   return is_power(d["p"] + 1, 2)
 
-normal = ('C0', 20)
-bold = ('r', 40)
+normal = {'c': 'C0', 's': 20}
+bold = {'c': 'r', 's': 40}
+
+def validate(data, x_get, y_get):
+  result = []
+  for d in data:
+    if x_get(d) is not None and y_get(d) is not None:
+      result.append(d)
+  return result
 
 def simple_scatter(data, x_get, y_get):
   if isinstance(x_get, str) and isinstance(y_get, str):
@@ -226,20 +238,28 @@ def simple_scatter(data, x_get, y_get):
     plt.ylabel(y_get)
     y_get = itemgetter(y_get)
 
+  data = validate(data, x_get, y_get)
+
   xs = list(map(x_get, data))
   ys = list(map(y_get, data))
-
-  plt.scatter(xs, ys, *normal)
+  plt.scatter(xs, ys, **normal)
 
 def VDW_scatter(data, y_attr, highlight_VDW=False):
-  simple_scatter(data, "p", y_attr)
+  plt.suptitle(f"p vs {y_attr}")
+
+  x_get = itemgetter("p")
+  y_get = itemgetter(y_attr)
+  data = validate(data, x_get, y_get)
+
+  xs = list(map(x_get, data))
+  ys = list(map(y_get, data))
+  plt.scatter(xs, ys, **normal)
 
   if not args["--no-highlight"]:
     VDW_data = list(filter(is_VDW, data))
     VDW_xs = list(map(itemgetter("p"), data))
     VDW_ys = list(map(itemgetter(y_attr), data))
-
-    plt.scatter(VDW_xs, VDW_ys, *bold)
+    plt.scatter(VDW_xs, VDW_ys, **bold)
 
   return VDW_xs, VDW_ys
 
@@ -262,7 +282,7 @@ def graph_kWvsV(data):
   xs = list(map(lambda d: len(bin(d["p"])) - 2, data))
   ys = list(map(itemgetter("V"), data))
 
-  plt.scatter(xs, ys, *bold)
+  plt.scatter(xs, ys, **bold)
 
   return xs, ys
 
@@ -281,7 +301,7 @@ def graph_Pvsy0_fitted(data):
 
 @metagraph("P-A.png")
 def graph_PvsA(data):
-  return VDW_scatter("A")
+  return VDW_scatter(data, "A")
 
 @metagraph("P-A-fitted.png")
 def graph_PvsA_fitted(data):
@@ -289,7 +309,7 @@ def graph_PvsA_fitted(data):
 
 @metagraph("P-k.png")
 def graph_Pvsk(data):
-  return VDW_scatter("k")
+  return VDW_scatter(data, "k")
 
 @metagraph("P-k-fitted.png")
 def graph_Pvsk_fitted(data):
@@ -303,9 +323,9 @@ def graph_Pvsx0(data):
 def graph_Pvsx0_fitted(data):
   fit(*graph_Pvsx0(data), logarithmic, [1, 1, 1, -1])
 
-@metagraph("y0-a.png")
+@metagraph("y0-A.png")
 def graph_y0vsa(data):
-  simple_scatter(data, "y0", "a")
+  simple_scatter(data, "y0", "A")
 
 @metagraph("x0-V.png")
 def graph_x0vsV(data):
@@ -326,8 +346,8 @@ if args["meta"]:
     graph(data)
 
     plot_filename = graph._saveto
-    plot_fileloc = os.path.join(target_dir, "all", pot_filename)
-    plt.overwritefig(plot_loc, bbox_inches='tight')
-    print(f"All-plot {plot_loc} generated.")
+    plot_fileloc = os.path.join(target_dir, "all", plot_filename)
+    plt.overwritefig(plot_fileloc, bbox_inches='tight')
+    print(f"All-plot {plot_fileloc} generated.")
     plt.clf()
 
