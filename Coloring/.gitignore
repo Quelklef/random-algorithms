@@ -1,3 +1,11 @@
 data/
 venv/
 crunched/
+__pycache__/
+
+*.aux
+*.log
+*.out
+*.tex
+*.log
+*.pdf
