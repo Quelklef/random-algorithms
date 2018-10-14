@@ -55,14 +55,10 @@ def reciprocal(x, y0, A):
 def WLstar(x, y0, A, k, x0):
   return y0 + A * ((x * (2 ** (k * (x - x0) - 1))) ** .5)
 
-def is_power(n, b):
-  if n < 1:
-    return False
-  elif n == 1:
-    return True
-  return is_power(n / b, b)
+def is_power_of_two(num):
+  return num != 0 and (num & (num - 1) == 0)
 def is_VDW(d):
-  return is_power(d["p"] + 1, 2)
+  return is_power_of_two(d["p"] + 1)
 
 def iter_ps():
   """Generate (p value, dirloc) for all ps in integer order"""
@@ -196,7 +192,7 @@ def fit(xs, ys, func, p0, bounds=None):
   if not bounds:
     bounds = (min(xs), max(xs))
   sample_xs = np.linspace(*bounds, 200)
-  plt.plot(sample_xs, func(sample_xs, *params), color='r', linewidth=1)
+  plt.plot(sample_xs, func(sample_xs, *params), color='r', linewidth=1.5)
   return params
 
 def validate(data, x_get, y_get):
@@ -250,7 +246,7 @@ def pgraph(p, fitted=False):
   if os.path.isfile(fileloc):
     print(f"Not generating {fileloc} as it already exists.")
   else:
-    graph(xs, ys, "N", "%", title=f"p ={p}; pattern = {p:b}", filename=filename, fit_to=fit_to)
+    graph(xs, ys, "N", "%", title=f"p ={p}; pattern = {p:b}", filename=filename, fit_to=fit_to, style=small)
 
   return fileloc
 
@@ -267,7 +263,7 @@ def metagraph(x_get, y_get, **kwargs):
 
 VDW_vals = list(filter(is_VDW, vals))
 
-def graphVDW(x_attr, y_attr, fit_to, bounds=None):
+def graphVDW(x_attr, y_attr, fit_to=None, bounds=None):
   x_get = itemgetter(x_attr)
   y_get = itemgetter(y_attr)
 
@@ -309,6 +305,10 @@ def params_latex(f, params):
   return result
 
 echo(r"""
+% Fix "too many open files"
+\let\mypdfximage\pdfximage
+\def\pdfximage{\immediate\mypdfximage}
+
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage{mathtools}
@@ -549,10 +549,10 @@ The logistic curve isn't perfect, though. One issue is that many graphs exhibit 
 \begin{figure}[H]
     \centering
     \noindent
-    [[ img_latex(pgraph(5485)) ]]
-    [[ img_latex(pgraph(5487)) ]]
-    [[ img_latex(pgraph(5494)) ]]
-    [[ img_latex(pgraph(5499)) ]]
+    [[ img_latex(pgraph(5485, fitted=True)) ]]
+    [[ img_latex(pgraph(5487, fitted=True)) ]]
+    [[ img_latex(pgraph(5494, fitted=True)) ]]
+    [[ img_latex(pgraph(5499, fitted=True)) ]]
     \caption{Some $p$-graphs are ``kinked'' in comparison to the logistic fit.}
     \label{fig:kinky}
 \end{figure}
@@ -579,7 +579,7 @@ Now we'd like to be able to curve fit onto the function of the $y_0$, $A$, $k$, 
     [[ img_latex(metagraph("p", "A")) ]]
     [[ img_latex(metagraph("p", "k")) ]]
     [[ img_latex(metagraph("p", "x0")) ]]
-    \caption{The logistic parameters were compared to $p$. Pattern which consist of all $1$s, which are those for which $P + 1$ is a power of $2$, are drawn in red.}
+    \caption{The logistic parameters were compared to $p$.}
     \label{fig:summary}
 \end{figure}
 
@@ -616,6 +616,21 @@ The plots of $V$ and $x_0$ seem to be similar and indeed exhibit a ``linear-ish'
     \label{fig:V_vs_x0}
 \end{figure}
 
+In order to approximate $W$, the points we care most about are those which correspond to a pattern of all $1$s, since a pattern of all $1$s is a MAS($k$). The four primary graphs are drawn again in Figure \ref{fig:highlighted}, with these points of interest highlighted in red.
+
+\begin{figure}[H]
+  \centering
+  \noindent """)
+
+for attr in ["y0", "A", "k", "x0"]:
+  metagraph("p", attr, keep=True)
+  echo(img_latex(graphVDW("p", attr)))
+
+echo(r"""
+  \caption{Logistic parameters with VDW points highlighted in red.}
+  \label{fig:highlighted}
+\end{figure}
+
 \section{Discussion}
 
 Before we begin, something should be quickly addressed. In this paper, there are two variables named $k$: one denoting the size of a $MAS$ and the other denoting the value of the parameter $k$ in curve fitting. In order to unambiguously differentiate between the two, we will call the former $k_W$, ``$W$'' for ``Waerden''\footnote{$k_V$ is not used because $V$ is another logistic parameter.}.
@@ -634,8 +649,11 @@ $$W_L^*(k_W) = y_0 + A\sqrt{k_W \cdot 2^{k(k_W-x_0) - 1}} $$
     \noindent
 """)
 
-xs = list(map(lambda d: len(bin(d["p"])) - 2, VDW_vals))
-ys = list(map(itemgetter("V"), VDW_vals))
+x_get = lambda d: len(bin(d["p"])) - 2
+y_get = itemgetter("V")
+VDW_vals_for_kW_V = validate(VDW_vals, x_get, y_get)
+xs = list(map(x_get, VDW_vals_for_kW_V))
+ys = list(map(y_get, VDW_vals_for_kW_V))
 echo(img_latex(graph(xs, ys, "kW", "V")))
 fileloc, params = graph(xs, ys, "kW", "V", fit_to=(WLstar, [0, 2, 1, 0]))
 y0, A, k, x0 = params
@@ -658,11 +676,12 @@ The result of the curve fitting is shown in Figure \ref{fig:appx_via_V_results}.
 \end{figure}
 
 Plugging the coefficients from Figure \ref{fig:appx_via_V_results} of the curve fitting back into $W_L^*$, we get the approximation:
-$$W(2,k_W) \approx [[ y0 ]] + [[ A ]] \sqrt{k_W \cdot 2^{[[ k ]] (k_W+ [[ x0 ]]) - 1}}$$
+$$W(2,k_W) \approx [[y0:.2f]] + [[A:.2f]] \sqrt{k_W \cdot 2^{[[k:.2f]] (k_W+ [[x0:.2f]]) - 1}}$$
 
 \subsubsection{By Composition}
 
-Second, we could instead fit a curve to these points of interest in their current position and then compose that with $P^{-1}$ to arrive at another approximation. The data were fit against the parameterized logarithmic curve
+Second, we could instead fit a curve to these points on interest in their current poisition to get another approximation. This would be an approximation based on $p$, however; we want one based on $k_W$, so we would need to compose the approximation function with another function $M$ that maps $k_W$ values to $p$ values.
+The data were fit against the parameterized logarithmic curve
 $$\phantom{.}\ln^*(x) = y_0 + A\ln(k(x-x_0)).$$
 The result of the curve fitting is shown in Figure \ref{fig:appx_via_V_composition}.
 
@@ -693,10 +712,10 @@ The derived coefficients are:
 \end{figure}
 
 Thus, given a $p$ of interest, which is one that is colored red, we may approximate $V$ with:
-$$\phantom{.}V(p) \approx [[ y0 ]] + [[ A ]] \ln([[ k ]] (p - [[ x0 ]])).$$
+$$\phantom{.}V(p) \approx [[y0:.2f]] + [[A:.2f]] \ln([[k:.2f]] (p - [[x0:.2f]])).$$
 
 This is one step away from the goal; we want to know $V$ in terms of $k_W$, not $p$. Thus, we need a mapping $M$ from $k_W$ to $p$; then $\ln^* \circ \ M$ approximates $W(c, k_W)$. The $p$s we're dealing with are those patterns which are all $1$s, so each $p$ is in a position of a power of 2 minus 1. Thus, we may let $M(k_W) = 2^{k_W}-1$; then $M$ maps $k_W$s their corresponding $p$ values. Composing $M$ with with $\ln^*$, arrive at:
-$$W(2,k_W) \approx [[ y0 ]] + [[ A ]] \ln([[ k ]] ((2^{k_W} - 1) - [[ x0 ]]))$$
+$$W(2,k_W) \approx [[y0:.2f]] + [[A:.2f]] \ln([[k:.2f]] ((2^{k_W} - 1) - [[x0:.2f]]))$$
 
 \subsection{Approximation via Logistic Parameters}
 
@@ -721,6 +740,9 @@ $$\phantom{;}L^*(x) = y_0 + Ax;$$
 
 echo(img_latex(metagraph("p", "y0", keep=True)))
 fileloc, params = graphVDW("p", "y0", fit_to=(linear, [1, 1]))
+# Have to define this like this because `params` will be overwritten
+# and we want to use its current value.
+y0f = (lambda params: lambda p: linear(p, *params))(params)
 p_y0_y0, p_y0_A = params
 echo(img_latex(fileloc))
 
@@ -741,6 +763,7 @@ echo(r"""
 
 echo(img_latex(metagraph("p", "A", keep=True)))
 fileloc, params = graphVDW("p", "A", fit_to=(linear, [1, 1]))
+Af = (lambda params: lambda p: linear(p, *params))(params)
 p_A_y0, p_A_A = params
 echo(img_latex(fileloc))
 
@@ -764,6 +787,7 @@ $$\phantom{;}I^*(x) = y0 + \frac{A}{x};$$
 
 echo(img_latex(metagraph("p", "k", keep=True)))
 fileloc, params = graphVDW("p", "k", fit_to=(reciprocal, [50, 50]))
+kf = (lambda params: lambda p: reciprocal(p, *params))(params)
 p_k_y0, p_k_A = params
 echo(img_latex(fileloc))
 
@@ -786,6 +810,7 @@ and $P$ vs $x_0$ was fit against $ln^*$.
 
 echo(img_latex(metagraph("p", "x0", keep=True)))
 fileloc, params = graphVDW("p", "x0", fit_to=(logarithmic, [1, 1, 1, -1]))
+x0f = (lambda params: lambda p: logarithmic(p, *params))(params)
 p_x0_y0, p_x0_A, p_x0_k, p_x0_x0 = params
 echo(img_latex(fileloc))
 
@@ -801,24 +826,41 @@ echo(r"""
 \end{figure}
 
 Approximating $\%$ with $\sigma^*$:
-$$\%(p) = y_0 + \frac{A}{1 + e^{k(p-x_0)}}$$
-we may plug in that
+$$\%(n) = y_0 + \frac{A}{1 + e^{k(p-x_0)}}$$
+we'd like to know when $$\phantom{,}\%(n) = 1,$$ and may derive:
 \begin{align*}
-    y_0 &\approx [[ p_y0_y0 ]] + [[ p_y0_A ]] p \\
-    A &\approx [[ p_A_y0 ]] + [[ p_A_A ]] p \\
-    K &\approx [[ p_k_y0 ]] + \frac{ [[ p_k_A ]] }{p} \\
-    x_0 &\approx [[ p_x0_y0 ]] + [[ p_x0_A ]] \ln([[ p_x0_k ]] (p - [[ p_x0_x0 ]]))
+  y_0 + \frac{A}{1 + e^{k(n-x_0)}} &= 1 \\
+  \frac{A}{1 + e^{k(n-x_0)}} &= 1 - y_0 \\
+  \frac{1 + e^{k(n-x_0)}}{A} &= \frac{1}{1 - y_0} \\
+  1 + e^{k(n-x_0)} &= \frac{A}{1-y_0} \\
+  e^{k(n-x_0)} &= \frac{A}{1-y_0} - 1 \\
+  k(n-x_0) &= \ln(\frac{A}{1-y_0} - 1) \\
+  n - x_0 &= \frac{ \ln(\frac{A}{1-y_0} - 1) }{k} \\
+  n &= \frac{ \ln(\frac{A}{1-y_0} - 1) }{k} + x_0
+\end{align*}
+
+and we may plug in that""")
+
+y0_appx = specify(r"[[p_y0_y0:.2f]] + [[p_y0_A:.2f]] p", **locals())
+A_appx = specify(r"[[p_A_y0:.2f]] + [[p_A_A:.2f]] p", **locals())
+k_appx = specify(r"[[p_k_y0:.2f]] + \frac{ [[p_k_A:.2f]] }{p}", **locals())
+x0_appx = specify(r"[[p_x0_y0:.2f]] + [[p_x0_A:.2f]] \ln([[p_x0_k:.2f]] (p - [[p_x0_x0:.2f]]))", **locals())
+
+M = "(2^{k_W}-1)"
+
+n_formula = specify(r"\frac{ \ln(\frac{[[ A_appx ]]}{1 - [[ y0_appx ]]} - 1) }{[[ k_appx ]]} + [[ x0_appx ]]", **locals())
+
+echo(r"""\begin{align*}
+  y_0 &\approx [[ y0_appx ]] \\
+  A &\approx [[ A_appx ]] \\
+  k &\approx [[ k_appx ]] \\
+  x_0 &\approx [[ x0_appx ]]
 \end{align*}
 to find that
-$$\%(p) \approx {([[ p_y0_y0 ]] + [[ p_y0_A ]] p)} + \frac{ {[[ p_A_y0 ]] + [[ p_A_A ]] p} }{1 + \exp({{([[ p_k_y0 ]] + \frac{[[ p_k_A ]]}{p})}(p- {([[ p_x0_y0 ]] + [[ p_x0_A ]] \ln([[ p_x0_k ]](p - [[ p_x0_x0 ]])))} )})}$$
+$$ n \approx [[ n_formula ]] $$
 and then compose with $M$ to find the desired function of $k_W$:
-\begin{gather*}
-    \phantom{.}W(2,k_W) = \%(k_W) \approx {([[ p_y0_y0 ]] + [[ p_y0_A ]]  (2^{k_W} - 1) )} + \\ \frac{ {[[ p_A_y0 ]] + [[ p_A_A ]] (2^{k_W} - 1)} }{1 + \exp({{([[ p_k_y0 ]] + \frac{[[ p_k_A ]]}{(2^{k_W} - 1)})}((2^{k_W} - 1)- {([[ p_x0_y0 ]] + [[ p_x0_A ]] \ln([[ p_x0_k ]]((2^{k_W} - 1) - [[ p_x0_x0 ]])))} )})}.
-\end{gather*}
-
+$$ W(2, k_W) \approx [[ n_formula.replace("p", M) ]] $$
 Simple and elegant.
-
-TODO: THIS IS WRONG; MUST SOLVE FOR =1
 
 \subsection{Comparison to Known Values}
 """)
@@ -828,7 +870,7 @@ def M(kW):
 def V_discarding(kW):
   return WLstar(kW, kW_V_y0, kW_V_A, kW_V_k, kW_V_x0)
 def V_composition(kW):
-  return logarithmic(M(kW), p_V_y0, p_V_A, p_V_k, p_V_x0)
+  return math.log(Af(M(kW)) / (1 - y0f(M(kW))) - 1) / kf(M(kW)) + x0f(M(kW))
 def log_discarding(kW):
   return 0
 def log_composition(kW):
@@ -860,9 +902,12 @@ echo(r"""
 
 if args["--appendix"]:
   echo(r"\newpage \section{Appendix}")
+  echo(r"\begin{center}")
   for p, _ in iter_ps():
     echo(img_latex(pgraph(p)))
     echo(img_latex(pgraph(p, fitted=True)))
+    echo(r"\\")
+  echo(r"\end{center}")
 
 echo("""
 \end{document}
