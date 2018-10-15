@@ -11,8 +11,7 @@ import threadpool
 
 import coloring
 import find
-import trial
-from ../util import `*`, times, `{}`, createFile, numLines, optParam
+from ../util import `*`, times, `{}`, createFile, numLines, optParam, toBase
 
 const threadCount = 16
 
@@ -31,7 +30,9 @@ proc put(s: string; y: int) =
 
 var threads: array[threadCount, Thread[int]]
 
-var assignments: array[threadCount, Channel[(int, int, TrialSpec)]]
+let C = 2
+let desiredTrialCount = 500_000
+var assignments: array[threadCount, Channel[(int, int, string, string, proc(d: int): Coloring {.closure, gcSafe.})]]
 
 # The threads will do the work and respond with a signal
 # iff the next p should be advanced to
@@ -45,13 +46,13 @@ for i in 0 ..< threadCount:
 proc work(id: int) {.thread.} =
   var lastUpdate = epochTime()
   while true:
-    let (p, N, spec) = assignments[id].recv()
+    let (p, N, outloc, description, pattern) = assignments[id].recv()
 
     # Store a (count, success) tuple as data
     var attempts = 0
     var successes = 0
 
-    let fileloc = spec.outloc / "$#.txt" % $N
+    let fileloc = outloc / "$#.txt" % $N
 
     if fileExists(fileloc):
       let file = open(fileloc, mode = fmRead)
@@ -70,11 +71,11 @@ proc work(id: int) {.thread.} =
       file.write($attempts & "\n" & $successes & "\n")
       file.close()
 
-    var col = initColoring(spec.C, N)
-    while attempts < spec.coloringCount:
+    var col = initColoring(C, N)
+    while attempts < desiredTrialCount:
       col.randomize()
       attempts += 1
-      if col.hasMMP_progression(spec.pattern):
+      if col.hasMMP_progression(pattern):
         successes += 1
 
       template formatPercent(x: float, p = 1): string = (x * 100).formatFloat(format = ffDecimal, precision = p).align(4 + p)
@@ -84,17 +85,16 @@ proc work(id: int) {.thread.} =
       if epochTime() > lastUpdate + pause:
         lastUpdate = epochTime()
         withLock(ioLock):
-          let aN = ($N).align(len($spec.maxN))
           let aId = ($id).align(len($threadCount))
-          let aTrialCount = ($attempts).align(len($spec.coloringCount))
+          let aCurrentTrialCount = ($attempts).align(len($desiredTrialCount))
           put("[Thread $#] [$#] [N=$#] [Trial #$#/$#; $#%] :: $#%" %
             [
               aId,
-              spec.description,
-              aN,
-              aTrialCount,
-              $spec.coloringCount,
-              (attempts / spec.coloringCount).formatPercent,
+              description,
+              $N,
+              aCurrentTrialCount,
+              $desiredTrialCount,
+              (attempts / desiredTrialCount).formatPercent,
               (successes / attempts).formatPercent(5),
             ],
             id + 1,
@@ -117,13 +117,20 @@ proc main() =
     threads[i].createThread(work, i)
 
   var p = 0
-  let trialGen = arithmeticTrialGen
   while true:
-    let trialSpec = trialGen(p)
+    let outloc = "data/arithmetic/$#" % $p
+    let patternStr = p.toBase(2)
+    let description = "p=$#, pattern=$#" % [$p, $patternStr]
+    let pattern = proc(d: int): Coloring {.closure, gcSafe.} =
+      result = initColoring(2, d * (patternStr.len - 1) + 1)
+      for i, c in patternStr:
+        if c == '1':
+          result[i * d] = 1
+
     p += 1
 
-    if not dirExists(trialspec.outloc):
-      createDir(trialspec.outloc)
+    if not dirExists(outloc):
+      createDir(outloc)
 
     var N = 1
     block nextP:
@@ -132,7 +139,7 @@ proc main() =
           if responses[i].peek > 0:
             if responses[i].recv() == p:
               break nextP
-          if assignments[i].trySend((p, N, trialSpec)):
+          if assignments[i].trySend((p, N, outloc, description, pattern)):
             N += 1
 
 main()

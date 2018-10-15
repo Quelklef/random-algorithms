@@ -68,3 +68,15 @@ proc numLines*(f: string): int =
 proc createFile*(f: string) =
   close(open(f, mode = fmWrite))
 
+proc toBase*(x, b: int): string =
+  if x == 0: return "0"
+  if x < 0: return "-" & (-x).toBase(b)
+  var x = x
+  var s: seq[int] = @[]
+  while x > 0:
+    let r = x mod b
+    s.add(r)
+    x = x div b
+  for i in countdown(s.len - 1, 0):
+    result &= $s[i]
+
