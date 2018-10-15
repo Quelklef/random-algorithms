@@ -1,14 +1,10 @@
 import unittest
-import macros
 import random
-import times
-import strutils
-import math
 
 import coloring
 import twoColoring
 import find
-from ../util import times
+import ../util
 
 # This module actually encapsulates both testing and benchmarking
 # Run with -d:benchmark to benchmark instead of testing

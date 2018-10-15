@@ -1,17 +1,5 @@
-import options
-import hashes
-import sets
-import tables
-
 import coloring
 from ../util import times
-
-iterator skip*[T](a, step: T, n: int): T =
-  ## Yield a, a + T, a + 2T, etc., n times
-  var x = a
-  for _ in 0 ..< n:
-    yield x
-    x += step
 
 proc hasMMP*(coloring, mask: Coloring): bool =
   ## MMP stands for Mask Monochromatic Position

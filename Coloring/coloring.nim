@@ -1,5 +1,4 @@
 import macros
-import strutils
 
 import twoColoring
 export twoColoring

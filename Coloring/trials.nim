@@ -1,17 +1,12 @@
 import locks
-import options
-import strutils
-import sequtils
-import sugar
-import os
-import times
 import terminal
-import tables
-import threadpool
+import times
+import strutils
+import os
 
 import coloring
 import find
-from ../util import `*`, times, `{}`, createFile, numLines, optParam, toBase
+import ../util
 
 const threadCount = 16
 
