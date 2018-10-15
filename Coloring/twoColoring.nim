@@ -6,7 +6,6 @@ import sugar
 import sequtils
 import hashes
 
-import coloringType
 from ../util import rand_u64, times
 
 template high[T: uint64](t: typedesc[T]): uint64 = 18446744073709551615'u64
@@ -27,18 +26,22 @@ last coloring.
 We maintain the following state:
 - There are never more uis than there need to be
 ]#
-type TwoColoring* = ref object of Coloring
+type TwoColoring* = ref object
+  N*: int
   data*: seq[uint64]
+
+# The project scope is limited to 2-colorings right now and this acts
+# as a dummy type for extensibility reasons
+type Coloring* = TwoColoring
 
 proc initTwoColoring*(N: int): TwoColoring =
   new(result)
   result.N = N
-  result.C = 2
   result.data = @[]
   for _ in 1 .. ceildiv(N, 64):
     result.data.add(0'u64)
 
-method `==`*(col0: TwoColoring; col1: Coloring): bool =
+proc `==`*(col0: TwoColoring; col1: Coloring): bool =
   return col1 of TwoColoring and col0.N == col1.N and col0.data == col1.TwoColoring.data
 
 proc asBinReversed(x: uint64): string =
@@ -47,8 +50,8 @@ proc asBinReversed(x: uint64): string =
   for i in 0 ..< 64:
     result &= $(1'u64 and (x shr i))
 
-method `[]`*(col: TwoColoring, i: int): int
-method `$`*(col: TwoColoring): string =
+proc `[]`*(col: TwoColoring, i: int): int
+proc `$`*(col: TwoColoring): string =
   result = ""
   for ui in col.data:
     result &= asBinReversed(ui)
@@ -63,24 +66,24 @@ proc `{}=`(col: var TwoColoring, i: int, val: int) =
   else: # val == 0
     col.data[i div 64] = col.data[i div 64] and not (1'u64 shl (i mod 64))
 
-method `[]`*(col: TwoColoring, i: int): int =
+proc `[]`*(col: TwoColoring, i: int): int =
   when compileOption("boundChecks"):
     if i >= col.N:
       raise newException(IndexError, "Index $# out of bounds" % $i)
   return col{i}
 
-method `[]=`*(col: var TwoColoring, i: int, val: int) =
+proc `[]=`*(col: var TwoColoring, i: int, val: int) =
   when compileOption("boundChecks"):
     if i >= col.N:
       raise newException(IndexError, "Index $# out of bounds" % $i)
   col{i} = val
 
-method randomize*(col: var TwoColoring): void =
+proc randomize*(col: var TwoColoring): void =
   ## Randomize a two-coloring
   for i in 0 ..< col.data.len:
     col.data[i] = rand_u64()
 
-method homogenous*(col, mask: TwoColoring): bool =
+proc homogenous*(col, mask: TwoColoring): bool =
   ## Are all the colors specified by the mask the
   ## same coloring?
   when compileOption("checks"):
@@ -100,12 +103,12 @@ proc shiftRightImpl(col: var TwoColoring; overflow: uint64; i: int) =
   col.data[i] = (col.data[i] shl 1) or overflow
   col.shiftRightImpl(recurOverflow, i + 1)
 
-method shiftRight*(col: var TwoColoring) =
+proc shiftRight*(col: var TwoColoring) =
   ## In-place shift right
   col.shiftRightImpl(0, 0)
 
-method `or`*(col0: TwoColoring; col1: Coloring): Coloring =
-  # TODO: this multimethod is kinda ugly
+proc `or`*(col0: TwoColoring; col1: Coloring): Coloring =
+  # TODO: this multiproc is kinda ugly
   ## Result takes the length of the longest coloring
   let col1 = cast[TwoColoring](col1)
   var resultData = newSeq[uint64](max(col0.data.len, col1.data.len))

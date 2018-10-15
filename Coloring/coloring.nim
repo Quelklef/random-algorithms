@@ -1,19 +1,12 @@
 import macros
 import strutils
 
-import coloringType
 import twoColoring
-import nColoring
-
-export coloringType
 export twoColoring
-export nColoring
 
 proc initColoring*(C, N: int): Coloring =
-  if C == 2:
-    return initTwoColoring(N)
-  else:
-    return initNColoring(C, N)
+  assert(C == 2)
+  return initTwoColoring(N)
 
 iterator items*(col: Coloring): int =
   for i in 0 ..< col.N:
