@@ -25,9 +25,7 @@ proc put(s: string; y: int) =
 
 var threads: array[threadCount, Thread[int]]
 
-let C = 2
-let desiredTrialCount = 500_000
-var assignments: array[threadCount, Channel[(int, int, string, string, proc(d: int): Coloring {.closure, gcSafe.})]]
+var assignments: array[threadCount, Channel[(int, int, int, int, string, string, proc(d: int): Coloring {.closure, gcSafe.})]]
 
 # The threads will do the work and respond with a signal
 # iff the next p should be advanced to
@@ -38,31 +36,19 @@ for i in 0 ..< threadCount:
   assignments[i].open(maxItems = 1)
   responses[i].open()
 
+let C = 2
+let desiredTrialCount = 500_000
 proc work(id: int) {.thread.} =
   var lastUpdate = epochTime()
   while true:
-    let (p, N, outloc, description, pattern) = assignments[id].recv()
+    let (p, N, attemptsLet, successesLet, outloc, description, pattern) = assignments[id].recv()
 
-    # Store a (count, success) tuple as data
-    var attempts = 0
-    var successes = 0
-
-    let fileloc = outloc / "$#.txt" % $N
-
-    if fileExists(fileloc):
-      let file = open(fileloc, mode = fmRead)
-      defer: file.close()
-      let existingData = file.readAll().splitLines()
-      try:
-        attempts = parseInt(existingData[0])
-        successes = parseInt(existingData[1])
-      except ValueError:
-        put("WARNING: data in " & fileloc & " corrupt; overwriting", threadCount + 1)
-        attempts = 0
-        successes = 0
+    # Store a (attempt, success) tuple as data
+    var attempts = attemptsLet
+    var successes = successesLet
 
     defer:
-      let file = open(fileloc, mode = fmWrite)
+      let file = open(outloc, mode = fmWrite)
       file.write($attempts & "\n" & $successes & "\n")
       file.close()
 
@@ -113,7 +99,6 @@ proc main() =
 
   var p = 0
   while true:
-    let outloc = "data/$#" % $p
     let patternStr = p.toBase(2)
     let description = "p=$#, pattern=$#" % [$p, $patternStr]
     let pattern = proc(d: int): Coloring {.closure, gcSafe.} =
@@ -124,17 +109,54 @@ proc main() =
 
     p += 1
 
-    if not dirExists(outloc):
-      createDir(outloc)
+    let outdir = "data/$#" % $p
+    if not dirExists(outdir):
+      createDir(outdir)
 
-    var N = 1
+    var N = 0  # Actually stars at 1
+    var existingAttempts: int
+    var existingSuccesses: int
+    var outloc: string
+
+    proc getData(fileloc: string): tuple[attempts: int, successes: int] =
+      ## Get the existing (attempts, successes) tuple in this file
+      if not fileExists(fileloc):
+        return (0, 0)
+
+      let file = open(fileloc, mode = fmRead)
+      defer: file.close()
+
+      let existingData = file.readAll.splitLines()
+      try:
+        return (existingData[0].parseInt, existingData[1].parseInt)
+      except ValueError:
+        put("WARNING: data in " & outloc & " corrupt; ignoring", threadCount + 1)
+        return (0, 0)
+
     block nextP:
-      while true:
-        for i in 0 ..< threadCount:
-          if responses[i].peek > 0:
-            if responses[i].recv() == p:
-              break nextP
-          if assignments[i].trySend((p, N, outloc, description, pattern)):
-            N += 1
+      while true:  # Potentially infinite N
+        # Find the next N which needs more data
+        while true:
+          N += 1
+          outloc = outdir / $N & ".txt"
+          (existingAttempts, existingSuccesses) = getData(outloc)
+          if existingAttempts < desiredTrialCount:
+            # Needmore data; use this N
+            break
+
+          # Else, have enough data
+          put("INFO: Already have enough data for p=$# n=$#" % [$p, $N], 1)
+          if existingAttempts == desiredTrialCount:
+            # If 100% and enough data, move to next P
+            break nextP
+
+        block nextN:
+          while true:
+            for i in 0 ..< threadCount:
+              if responses[i].peek > 0:
+                if responses[i].recv() == p:
+                  break nextP
+              if assignments[i].trySend((p, N, existingAttempts, existingSuccesses, outloc, description, pattern)):
+                break nextN
 
 main()
