@@ -1,4 +1,3 @@
-import hashes
 import macros
 import strutils
 

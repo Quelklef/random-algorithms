@@ -118,7 +118,7 @@ proc main() =
 
   var p = 0
   while true:
-    let outloc = "data/arithmetic/$#" % $p
+    let outloc = "data/$#" % $p
     let patternStr = p.toBase(2)
     let description = "p=$#, pattern=$#" % [$p, $patternStr]
     let pattern = proc(d: int): Coloring {.closure, gcSafe.} =

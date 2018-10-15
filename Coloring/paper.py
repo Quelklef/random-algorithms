@@ -26,8 +26,8 @@ args = docopt(__doc__)
 matplotlib.use('TkAgg')
 
 # Constants
-source_dir = "data/arithmetic"
-target_dir = "crunched/arithmetic"
+source_dir = "data/"
+target_dir = "crunched/"
 
 if not os.path.isdir(target_dir):
   os.makedirs(target_dir)
