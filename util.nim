@@ -88,3 +88,19 @@ iterator items*(sl: HSlice[int, float]): int =
   while true:
     yield x
     inc(x)
+
+template catch*[T, X](expr: T; ex: typedesc[X]; val: T): T =
+  block:
+    var res: T
+    try:
+      res = expr
+    except ex:
+      res = val
+    res
+
+proc formatPercent*(x: float, p = 1): string =
+  return (x * 100).formatFloat(format = ffDecimal, precision = p).align(4 + p)
+
+proc align*(a, b: string): string =
+  return a.align(len(b))
+
