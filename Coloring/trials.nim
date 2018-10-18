@@ -31,14 +31,26 @@ CREATE TABLE IF NOT EXISTS data (
 
 #-- IO --#
 
-var ioLock: Lock
-initLock(ioLock)
-proc put(s: string; y: int) =
-  withLock(ioLock):
+# Because most printing in this module is for pure UX, i.e., it's not
+# strictly necessary, we define a `put` function which MAY OR MAY
+# NOT display a message at a certain y value. If it's already in
+# the process of printing something, it will ignore the request.
+
+var printChannel: Channel[(string, int)]
+printChannel.open(1)
+
+var printer: Thread[void]
+printer.createThread do:
+  while true:
+    let (s, y) = printChannel.recv()
     stdout.setCursorPos(0, y)
     stdout.eraseLine()
     stdout.write(s)
     stdout.flushFile()
+
+proc put(s: string; y: int) =
+  if printChannel.ready:
+    printChannel.send((s, y))
 
 #-- Worker threads --#
 
