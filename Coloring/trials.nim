@@ -107,11 +107,11 @@ proc main() =
         if c == '1':
           result[i * d] = 1
 
-    p += 1
-
     let outdir = "data/$#" % $p
     if not dirExists(outdir):
       createDir(outdir)
+
+    p += 1
 
     var N = 0  # Actually stars at 1
     var existingAttempts: int
