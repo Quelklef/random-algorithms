@@ -97,14 +97,23 @@ stopThread.createThread do:
   discard readLine(stdin)
   quit()
 
+let attemptsMin = 5_000
+let attemptsStep = 5_000
+let attemptsMax = 50_000
+
 for C in 2 .. 2:
   for N in 1 .. Inf:
+    if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == N:
+      put(fmt"Skipping c={C} n={N} as k={N} attempts={attemptsMax} has already been reached", threadCount + 2)
+      continue
+
     for K in 1 .. N:
-      for attempts in countup(5_000, 50_000, 5_000):
+      for attempts in countup(attemptsMin, attemptsMax, attemptsStep):
         # If there is already a row for this data, skip it
         if db.getValue(sql"SELECT rowid FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts) != "":
           put(fmt"Skipping c={C} n={N} k={K} attempts={attempts} as data has already been generated.", threadCount + 2)
-        else:
-          assign((C, N, K, attempts))
+          continue
+
+        assign((C, N, K, attempts))
 
 db.close()
