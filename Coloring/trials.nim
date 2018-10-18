@@ -2,10 +2,11 @@ import locks
 import terminal
 import times
 import strutils
-import os
+import db_sqlite
+import strformat
 
 import coloring
-import find
+import algo
 import ../util
 
 const threadCount = 16
@@ -14,75 +15,60 @@ when not defined(release):
   echo("WARNING: Not running with -d:release. Press enter to continue.")
   discard readLine(stdin)
 
+#-- DB Initialization --#
+
+let db = open("data.db", "", "", "")
+
+db.exec(sql"""
+CREATE TABLE IF NOT EXISTS data (
+  C INTEGER NOT NULL,
+  K INTEGER NOT NULL,
+  N INTEGER NOT NULL,
+  attempts INTEGER NOT NULL,
+  successes INTEGER NOT NULL
+)
+""")
+
+#-- IO --#
+
 var ioLock: Lock
 initLock(ioLock)
-
 proc put(s: string; y: int) =
-  stdout.setCursorPos(0, y)
-  stdout.eraseLine()
-  stdout.write(s)
-  stdout.flushFile()
+  withLock(ioLock):
+    stdout.setCursorPos(0, y)
+    stdout.eraseLine()
+    stdout.write(s)
+    stdout.flushFile()
+
+#-- Worker threads --#
 
 var threads: array[threadCount, Thread[int]]
+type Assignment = tuple[c, n, k, attempts: int]
+var assignmentChannels: array[threadCount, Channel[Assignment]]
 
-var assignments: array[threadCount, Channel[(int, int, int, int, string, string, proc(d: int): Coloring {.closure, gcSafe.})]]
+for ch in assignmentChannels.mitems:
+  open(ch, 1)
 
-# The threads will do the work and respond with a signal
-# iff the next p should be advanced to
-# Sends back the given p
-var responses: array[threadCount, Channel[int]]
-
-for i in 0 ..< threadCount:
-  assignments[i].open(maxItems = 1)
-  responses[i].open()
-
-let C = 2
-let desiredTrialCount = 500_000
-proc work(id: int) {.thread.} =
-  var lastUpdate = epochTime()
+proc assign(assignment: Assignment) =
   while true:
-    let (p, N, attemptsLet, successesLet, outloc, description, pattern) = assignments[id].recv()
+    for ch in assignmentChannels.mitems:
+      if ch.trySend(assignment):
+        return
 
-    # Store a (attempt, success) tuple as data
-    var attempts = attemptsLet
-    var successes = successesLet
+proc formatPercent(x: float, p = 1): string =
+  return (x * 100).formatFloat(format = ffDecimal, precision = p).align(4 + p)
 
-    defer:
-      let file = open(outloc, mode = fmWrite)
-      file.write($attempts & "\n" & $successes & "\n")
-      file.close()
+proc work(id: int) {.thread.} =
+  let showId = ($id).align(len($threadCount))
+  var lastUpdate = epochTime()
 
-    var col = initColoring(C, N)
-    while attempts < desiredTrialCount:
-      col.randomize()
-      attempts += 1
-      if col.hasMMP_progression(pattern):
-        successes += 1
+  while true:
+    let (C, N, K, attempts) = assignmentChannels[id].recv()
+    let successes = generateSuccessCount(C, N, K, attempts)
+    db.exec(sql"INSERT INTO data (c, n, k, attempts, successes) VALUES (?, ?, ?, ?, ?)", C, N, K, attempts, successes)
+    put(fmt"[Thread {showId}] [c={C}] [n={N}] [k={($K).align(len($N))}] :: {formatPercent(successes / attempts)}% ({successes}/{attempts})", id + 1)
 
-      template formatPercent(x: float, p = 1): string = (x * 100).formatFloat(format = ffDecimal, precision = p).align(4 + p)
-
-      # Because IO is (presumably) such a huge portion of the runtime, only update every now and then
-      const pause = 1  # minmum time between IO updates (s)
-      if epochTime() > lastUpdate + pause:
-        lastUpdate = epochTime()
-        withLock(ioLock):
-          let aId = ($id).align(len($threadCount))
-          let aCurrentTrialCount = ($attempts).align(len($desiredTrialCount))
-          put("[Thread $#] [$#] [N=$#] [Trial #$#/$#; $#%] :: $#%" %
-            [
-              aId,
-              description,
-              $N,
-              aCurrentTrialCount,
-              $desiredTrialCount,
-              (attempts / desiredTrialCount).formatPercent,
-              (successes / attempts).formatPercent(5),
-            ],
-            id + 1,
-          )
-
-    if attempts == successes:
-      responses[id].send(p)
+#-- Main loop --#
 
 proc main() =
   eraseScreen()
@@ -97,66 +83,15 @@ proc main() =
   for i in 0 ..< threadCount:
     threads[i].createThread(work, i)
 
-  var p = 0
-  while true:
-    let patternStr = p.toBase(2)
-    let description = "p=$#, pattern=$#" % [$p, $patternStr]
-    let pattern = proc(d: int): Coloring {.closure, gcSafe.} =
-      result = initColoring(2, d * (patternStr.len - 1) + 1)
-      for i, c in patternStr:
-        if c == '1':
-          result[i * d] = 1
+  for C in [2]:
+    for N in 1 .. Inf:
+      for K in 1 .. N:
+        for attempts in countup(5_000, 50_000, 5_000):
+          if db.getAllRows(sql"SELECT null FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts).len > 0:
+            put(fmt"Skipping c={C} n={N} k={K} as data has already been generated.", threadCount + 2)
+            continue
+          else:
+            assign((C, N, K, attempts))
 
-    let outdir = "data/$#" % $p
-    if not dirExists(outdir):
-      createDir(outdir)
-
-    p += 1
-
-    var N = 0  # Actually stars at 1
-    var existingAttempts: int
-    var existingSuccesses: int
-    var outloc: string
-
-    proc getData(fileloc: string): tuple[attempts: int, successes: int] =
-      ## Get the existing (attempts, successes) tuple in this file
-      if not fileExists(fileloc):
-        return (0, 0)
-
-      let file = open(fileloc, mode = fmRead)
-      defer: file.close()
-
-      let existingData = file.readAll.splitLines()
-      try:
-        return (existingData[0].parseInt, existingData[1].parseInt)
-      except ValueError:
-        put("WARNING: data in " & outloc & " corrupt; ignoring", threadCount + 1)
-        return (0, 0)
-
-    block nextP:
-      while true:  # Potentially infinite N
-        # Find the next N which needs more data
-        while true:
-          N += 1
-          outloc = outdir / $N & ".txt"
-          (existingAttempts, existingSuccesses) = getData(outloc)
-          if existingAttempts < desiredTrialCount:
-            # Needmore data; use this N
-            break
-
-          # Else, have enough data
-          put("INFO: Already have enough data for p=$# n=$#" % [$p, $N], 1)
-          if existingAttempts == desiredTrialCount:
-            # If 100% and enough data, move to next P
-            break nextP
-
-        block nextN:
-          while true:
-            for i in 0 ..< threadCount:
-              if responses[i].peek > 0:
-                if responses[i].recv() == p:
-                  break nextP
-              if assignments[i].trySend((p, N, existingAttempts, existingSuccesses, outloc, description, pattern)):
-                break nextN
-
-main()
+when isMainModule:
+  main()

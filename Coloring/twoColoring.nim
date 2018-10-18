@@ -21,12 +21,15 @@ We maintain the following state:
 - There are never more uis than there need to be
 ]#
 type TwoColoring* = ref object
-  N*: int
+  N*: Positive
   data*: seq[uint64]
 
 # The project scope is limited to 2-colorings right now and this acts
 # as a dummy type for extensibility reasons
 type Coloring* = TwoColoring
+# A bona fide Coloring type would have a `c` attribute so we emulate
+# that with a template
+template C*(tc: TwoColoring): Positive = 2
 
 proc initTwoColoring*(N: int): TwoColoring =
   new(result)

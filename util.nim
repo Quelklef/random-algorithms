@@ -80,3 +80,11 @@ proc toBase*(x, b: int): string =
   for i in countdown(s.len - 1, 0):
     result &= $s[i]
 
+iterator items*(sl: HSlice[int, float]): int =
+  if sl.b != Inf:
+    raise ValueError.newException("b must be Inf")
+
+  var x = sl.a
+  while true:
+    yield x
+    inc(x)

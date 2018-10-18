@@ -3,7 +3,7 @@ import random
 
 import coloring
 import twoColoring
-import find
+import algo
 import ../util
 
 # This module actually encapsulates both testing and benchmarking
@@ -101,24 +101,10 @@ suite "Testing twoColoring":
     let mask = !genStringNum(2, size)
     let r = homogenous(col, mask)
 
-  test "(C=2) hasMMP":
-    require hasMMP(!"11111", !"101")
-    require hasMMP(!"10101", !"101")
-    require hasMMP(!"11001", !"011")
-    require hasMMP(!"1", !"1")
-    require hasMMP(!"01001000", !"10001")
-    require(not hasMMP(!"101010101", !"11"))
-    require(not hasMMP(!"1001001", !"111"))
-    require(not hasMMP(!"100101", !"10001"))
-
-  test "(C=2) hasMMP_progression":
-    let patternStr = "1101"
-    let pattern = proc(d: int): Coloring {.closure, gcSafe.} =
-      result = initColoring(2, d * (patternStr.len - 1) + 1)
-      for i, c in patternStr:
-        if c == '1':
-          result[i * d] = 1
-
-    require hasMMP_progression(!"1101", pattern)
-    require hasMMP_progression(!"1010001", pattern)
-    require(not hasMMP_progression(!"1011", pattern))
+  test "(C=2) hasMAS":
+    require hasMAS(!"1001001", 3)
+    require(not hasMAS(!"1001001", 4))
+    require hasMAS(!"110", 2)
+    require(not hasMAS(!"110", 3))
+    require hasMAS(!"1", 1)
+    require(not hasMAS(!"101101", 3))
