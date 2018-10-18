@@ -66,7 +66,8 @@ proc work(id: int) {.thread.} =
     let (C, N, K, attempts) = assignmentChannels[id].recv()
     let successes = generateSuccessCount(C, N, K, attempts)
     db.exec(sql"INSERT INTO data (c, n, k, attempts, successes) VALUES (?, ?, ?, ?, ?)", C, N, K, attempts, successes)
-    put(fmt"[Thread {showId}] [c={C}] [n={N}] [k={($K).align(len($N))}] :: {formatPercent(successes / attempts)}% ({successes}/{attempts})", id + 1)
+
+    put(fmt"[Thread {showId}] [c={C}] [n={N}] [k={($K).align(len($N))}] :: {formatPercent(successes / attempts)}% ({($successes).align(len($attempts))}/{attempts})", id + 1)
 
 #-- Main loop --#
 
@@ -88,7 +89,7 @@ proc main() =
       for K in 1 .. N:
         for attempts in countup(5_000, 50_000, 5_000):
           if db.getAllRows(sql"SELECT null FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts).len > 0:
-            put(fmt"Skipping c={C} n={N} k={K} as data has already been generated.", threadCount + 2)
+            put(fmt"Skipping c={C} n={N} k={K} attempts={attempts} as data has already been generated.", threadCount + 2)
             continue
           else:
             assign((C, N, K, attempts))
