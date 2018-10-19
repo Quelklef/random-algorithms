@@ -79,7 +79,7 @@ proc work(id: int) {.thread.} =
     let (C, N, K, attempts) = assignmentChannels[id].recv()
     let successes = generateSuccessCount(C, N, K, attempts)
     withLock(dbLock):
-      db.exec(sql"INSERT INTO data (c, n, k, attempts, successes) VALUES (?, ?, ?, ?, ?)", C, N, K, attempts, successes)
+      defer: db.exec(sql"INSERT INTO data (c, n, k, attempts, successes) VALUES (?, ?, ?, ?, ?)", C, N, K, attempts, successes)
     put(fmt"[Thread {($id).align($threadCount)}] [c={C}] [n={N}] [k={($K).align($N)}] :: {formatPercent(successes / attempts)}% ({($successes).align($attempts)}/{attempts})", id + 1)
 
 var threads: array[threadCount, Thread[int]]
@@ -100,19 +100,23 @@ stopThread.createThread do:
 
 let attemptsMin = 5_000
 let attemptsStep = 5_000
-let attemptsMax = 50_000
+let attemptsMax = 500_000
 
 for C in 2 .. 2:
   for N in 1 .. Inf:
     if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == N:
-      put(fmt"Skipping c={C} n={N} as k={N} attempts={attemptsMax} has already been reached", threadCount + 2)
+      put(fmt"Skipping (n) c={C} n={N} as k={N} attempts={attemptsMax} has already been reached", threadCount + 2)
       continue
 
     for K in 1 .. N:
+      if db.getValue(sql"SELECT MAX(attempts) FROM data WHERE c=? AND n=? AND k=?", C, N, K).parseInt.catch(ValueError, -1) == attemptsMax:
+        put(fmt"Skipping (k) in c={C} n={N} k={N} as attempts={attemptsMax} has already been reached.", threadCount + 2)
+        continue
+
       for attempts in countup(attemptsMin, attemptsMax, attemptsStep):
         # If there is already a row for this data, skip it
         if db.getValue(sql"SELECT rowid FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts) != "":
-          put(fmt"Skipping c={C} n={N} k={K} attempts={attempts} as data has already been generated.", threadCount + 2)
+          put(fmt"Skipping (attempts) c={C} n={N} k={K} attempts={attempts} as data has already been generated.", threadCount + 2)
           continue
 
         assign((C, N, K, attempts))
