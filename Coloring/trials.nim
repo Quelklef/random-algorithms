@@ -26,8 +26,8 @@ let db = open("data.db", "", "", "")
 db.exec(sql"""
 CREATE TABLE IF NOT EXISTS data (
   c INTEGER NOT NULL,
-  k INTEGER NOT NULL,
   n INTEGER NOT NULL,
+  k INTEGER NOT NULL,
   attempts INTEGER NOT NULL,
   successes INTEGER NOT NULL
 )
@@ -95,6 +95,7 @@ put("Press <return> to exit.", 0)
 var stopThread: Thread[void]
 stopThread.createThread do:
   discard readLine(stdin)
+  db.close()
   quit()
 
 let attemptsMin = 5_000
@@ -115,5 +116,3 @@ for C in 2 .. 2:
           continue
 
         assign((C, N, K, attempts))
-
-db.close()
