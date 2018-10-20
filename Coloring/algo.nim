@@ -24,7 +24,7 @@ proc hasMAS*(col: Coloring; K: Positive): bool =
 
 proc generateSuccessCount*(C, N, K, attempts: int): int =
   var col = initColoring(C, N)
-  for i in 1 .. attempts:
+  attempts.times:
     col.randomize()
     if col.hasMAS(K):
       result.inc()
