@@ -4,7 +4,6 @@ Usage:
 
 Options:
   -h --help    Show help
-  --appendix   Generate appendix
 """
 
 import os
@@ -63,8 +62,8 @@ def linear(x, y0, A):
   return y0 + A * x
 def reciprocal(x, y0, A):
   return y0 + A / x
-def WLstar(x, y0, A, k, x0):
-  return y0 + A * ((x * (2 ** (k * (x - x0) - 1))) ** .5)
+def arctan(x, y0, A, k, x0):
+  return y0 + A * np.arctan(k * (x - x0))
 
 def specify(template, **context):
   context = context or globals()
@@ -85,7 +84,7 @@ def fit(xs, ys, func, p0, bounds=None):
   if not bounds:
     bounds = (min(xs), max(xs))
   sample_xs = np.linspace(*bounds, 200)
-  plt.plot(sample_xs, func(sample_xs, *params), color='r', linewidth=1.5)
+  plt.plot(sample_xs, func(sample_xs, *params), linewidth=1.5)
   return params
 
 bold = {'c': 'r', 's': 30}
@@ -100,7 +99,7 @@ def graph(xs, ys, x_label, y_label, *, title=None, filename=None, fit_to=None, s
 
   plt.scatter(xs, ys, **style)
   params = None
-  if fit_to:
+  if fit_to and len(xs) > len(fit_to[1]):
     params = fit(xs, ys, *fit_to)
   print(f"Generated {fileloc}.")
   plt.savefig(fileloc)
@@ -246,86 +245,131 @@ Since we constructed $B$ to be an upper bound, we know that $\text{\#$c$-colorin
 
 Thus, given a $c$ and $k$, choose $n \in \mathbb{N} \mid n<\sqrt{k \cdot c^{k-1}}$. Then $\exists c$-coloring $C$ of size $n$ that contain no MAS($k$). Therefore, $W_L(c, k) = \big\lfloor \sqrt{k \cdot c^{k-1}} \big\rfloor - 1$ is a lower bound of $W(c,k)$.
 
-\section{The $\zeta$ Function}
+\subsection{The $\zeta$ Function}
 
 We define the $\zeta$ function to be
 $$ \phantom{.} \zeta(c, n, k) = \text{The probability of a random $c$-coloring of size $n$ to have a MAS($k$)} . $$
 
-We empirically derive approximations of the $\zeta$ function for certain $c, n, k$ triplets by generating some number $attempts$ of $c$-colorings of size $n$; the ratio of generated colorings with a MAS($k$) to $attempts$ is the approximation. Denote this approximation
-$$ \phantom{.} \zeta_{attempts}(c, n, k) = \text{This particular approximation of $\zeta(c, n, k)$ for $attempts$ attempts} . $$
+We empirically derive approximations of the $\zeta$ function for certain $c, n, k$ triplets by generating some number $a$ of $c$-colorings of size $n$; the ratio of generated colorings with a MAS($k$) to $a$ is the approximation. Denote this approximation
+$$ \phantom{.} \zeta_a(c, n, k) = \text{This particular approximation of $\zeta(c, n, k)$ for $a$ attempts} . $$
+
+It is true that
+$$ \phantom{.} \zeta(c, n, k) = 0 \longrightarrow \zeta(c, n, k+1) = 0 .$$
+This is because if a $c$-coloring of size $n$ \textit{did} have a MAS($k+1$), then we could remove one of the items of that MAS thus constructing a MAS($k$). So $\zeta(c, n, k+1) \neq 0 \longrightarrow \zeta(c,n,k) \neq 0$ and, by contrapositive, $\zeta(c,n,k)=0\longrightarrow\zeta(c,n,k+1)=0$.
+
+We generalize this and state as well that
+$$ \phantom{.} \zeta_a(c, n, k) = 0 \longrightarrow \zeta_a(c, n, k+1) = 0 . $$
+\textbf{This is wrong.} It's possible that $\zeta_a(c, n, k) = 0$ only ``by coincidence'', i.e., despite that $\zeta(c,n,k)\neq 0$. So, $\zeta(c,n,k+1)$ may or may not not be $0$ and thus we cannot be sure about $\zeta_a(c,n,k+1)$. We adopt this assertion anyway because it adds a large efficiency boost to trial generation and shouldn't mess anything up too bad.
+
+Also note that
+$$ \phantom{.} \zeta(c, n, k) = 1 \longrightarrow \zeta(c, n+1, k) = 1 . $$
+This is because a $c$-coloring of size $n+1$ contains a $c$-coloring of size $n$. So if we're guaranteed that a $c$-coloring of size $n$ has a MAS($k$) then we're also guaranteed that any containing $c$-coloring of size $n+1$ has the same MAS($k$).
+
+In general,
+$$ \phantom{.} \zeta(c, n+1, k) \geq \zeta(c, n, k) . $$
+
+We may consider $a$ to be a ``confidence'' of the corresponding $\zeta$ approximation, since as $a$ approaches $\infty$, $\zeta_a$ should approach $\zeta$.
 
 \section{Materials and Methods}
 
-TODO: REDO
+The program generated different $\zeta_a(c,n,k)$ approximations and was roughly the following:
 
-A program was written to collect data answering the question ``for some $c, n, p$, what is the chance that an arbitrary $c$-coloring of size $n$ has a monochromatic subset matching some pattern designated by $p$?''. In a sense, the data is a mapping $(c, n, p) \longrightarrow probability$.
-
-The program was roughly the following:
-
-\begin{algorithm}
+\begin{algorithm}[H]
 \begin{algorithmic}[1]
 
-    \Function{trials}{$c$, $numTrials$} \Comment{Was only run for $c=2$.}
-    \For{$p \in \mathbb{N}^+$}  \Comment{We use $p$-values as a way to iterate over patterns.}
-        \State $pattern \gets \Call{make-pattern}{p}$ \Comment{\textsc{make-pattern} translates $p$-values back to patterns.}
-        \For{$n \in \mathbb{N}^+$} \Comment{Does not loop forever; break condition is on line 13.}
-            \State $attempts \gets 0$
-            \State $successes \gets 0$
-            \Loop{ $numTrials$ \textbf{times}}
-                \State $coloring \gets \Call{make-random-coloring}{c n}$
-                \State $attempts \gets attempts + 1$
-                \If{$coloring$ contains a monochromatic subset matching $pattern$}
-                    \State $successes \gets sucesses + 1$
-                \EndIf
-            \EndLoop
-            \State \Call{record-data}{$c$, $p$, $n$, $attempts$, $successes$}
-            \If{$attempts = successes$}  \Comment{If 100\% success rate, then now that all larger $n$s will have a 100\% success rate as well...}
-                \State \textbf{break} \Comment{...so skip them; go to next $p$.}
-            \EndIf
+\Function{generate-success-count}{$c$, $n$, $k$, $a$} \Comment{Approximates $a\cdot\zeta_a(c,n,k)$}
+  \State $successes \gets 0$
+  \Loop{ $a$ \textbf{times}}
+    \State $coloring \gets \Call{make-random-coloring}{c, n}$
+    \If{$coloring$ contains a MAS($k$)}
+      \State $successes \gets successes + 1$
+    \EndIf
+  \EndLoop
+  \State \Return $successes$
+\EndFunction
+
+\Function{trials}{}
+  \For{$c$ \textbf{in} $[2]$} \Comment{Only concerned with $c=2$}
+    \For{$n$ \textbf{in} $[1, 2, ...]$} \Comment{Unboundedly increment $n$}
+      \For{$a$ \textbf{in} $[5000, 10000, 15000, ..., 500000]$}
+        \For{$k$ \textbf{in} $[1, 2, ..., k]$}
+          \State $successes \gets \Call{generate-success-count}{c, n, k, a}$
+          \State \Call{record-data}{$c$, $n$, $k$, $a$, $successes$}
+          \If{$successes = 0$} \Comment{$\zeta_a(c,n,k)=0$ so $\forall k'>k(\zeta_a(c,n,k')=0)$}
+            \State \textbf{break} \Comment{So no need to test any $k'>k$.}
+          \EndIf
         \EndFor
-    \EndFor
+      \EndFor
+		\EndFor
+  \EndFor
 \EndFunction
 
 \end{algorithmic}
 \end{algorithm}
 
-In reality, the program is more complicated as it has to reify a $pattern$ as a datatype and reify the proposition ``$coloring$ contains a monochromatic subset matching $pattern$''; additionally, it runs on multiple threads. This simplified version, however, is sufficient to understand the paper and data.
+In reality, the program is somewhat more complicated handling more IO and running on multiple threads. However, this simplified version is sufficient to understand the paper.
 
 \section{Results}
 
 """)
 
+def fig_latex(latex):
+  return r"""\begin{figure}[H] %s \end{figure}""" % latex
+
+As = list(map(itemgetter(0), db.execute("SELECT DISTINCT attempts FROM data ORDER BY attempts")))
 ns = list(map(itemgetter(0), db.execute("SELECT DISTINCT n FROM data ORDER BY n")))
 ks = list(map(itemgetter(0), db.execute("SELECT DISTINCT k FROM data ORDER BY k")))
 
 echo("\subsection{$k$ vs $V$}")
 xs, ys = unzip(map(lambda r: (r[0], r[1]), db.execute("SELECT k, MIN(n) FROM data WHERE attempts=successes GROUP BY k, attempts")))
 filename = graph(xs, ys, "k", "V", title="k vs V", filename="k-v.png")
-echo(specify(r"""
-\begin{figure}[H]
-  [[ img_latex(filename) ]]
-\end{figure}
-""", **globals()))
+echo(fig_latex(img_latex(filename)))
 
 echo("\subsection{$k$ vs $\zeta$ for given $n$}")
 for n in ns:
-  xs, ys = unzip(list(map(lambda r: (r[K_i], zeta(r)), db.execute("SELECT * FROM data WHERE n=?", (n,)))))
-  filename = graph(xs, ys, "k", "zeta", title=f"k vs zeta for n={n}", filename=f"n={n}.png")
-  echo(specify(r"""
-  \begin{figure}[H]
-    [[ img_latex(filename) ]]
-  \end{figure}
-  """, **globals()))
+  plt.suptitle(f"k vs zeta for n={n}")
+  plt.xlabel("k")
+  plt.ylabel("zeta")
+  filename = f"n={n}.png"
+  fileloc = os.path.join(target_dir, filename)
+
+  xs, ys = None, None  # Leak this variable from the next loop
+  for a in As:
+    xs, ys = unzip(list(map(lambda r: (r[K_i], zeta(r)), db.execute("SELECT * FROM data WHERE n=? AND attempts=? AND successes <> 0", (n, a))))) or ([], [])
+    colors = [(1, 0, 1-(a/max(As)))] * len(xs)
+    plt.scatter(xs, ys, c=colors, s=50)
+
+  # Now the xs and ys are those for the most confident a
+  xs1, ys1 = unzip([(x, y) for x, y in zip(xs, ys) if y != 1]) or ([], [])
+  if len(xs1) >= 2:
+    _ = fit(xs1, ys1, reciprocal, [1, 1])
+  if len(xs1) >= 4:
+    _ = fit(xs1, ys1, exponential, [0, 1, -1, 0])
+    _ = fit(xs1, ys1, arctan, [np.pi / 2, 1, -1, 1])
+
+  print(f"Generated {fileloc}.")
+  plt.savefig(fileloc)
+  plt.clf()
+
+  echo(fig_latex(img_latex(fileloc)))
 
 echo("\subsection{$n$ vs $\zeta$ for given $k$}")
 for k in ks:
-  xs, ys = unzip(list(map(lambda r: (r[N_i], zeta(r)), db.execute("SELECT * FROM data WHERE k=?", (k,)))))
-  filename = graph(xs, ys, "n", "zeta", title=f"n vs zeta for k={k}", filename=f"k={k}.png")
-  echo(specify(r"""
-  \begin{figure}[H]
-    [[ img_latex(filename) ]]
-  \end{figure}
-  """, **globals()))
+  plt.suptitle(f"n vs zeta for k={k}")
+  plt.xlabel("n")
+  plt.ylabel("zeta")
+  filename = f"k={k}.png"
+
+  for a in As:
+    xs, ys = unzip(list(map(lambda r: (r[N_i], zeta(r)), db.execute("SELECT * FROM data WHERE k=? AND attempts=?", (k, a)))))
+    colors = [(1, 0, 1-(a/max(As)))] * len(xs)
+    plt.scatter(xs, ys, c=colors, s=50)
+
+  print(f"Generated {filename}.")
+  plt.savefig(filename)
+  plt.clf()
+
+  echo(fig_latex(img_latex(filename)))
 
 echo(r"""
 \newpage
