@@ -61,31 +61,38 @@ proc put(s: string; y: int) =
 
 #-- Worker threads --#
 
-type Assignment = tuple[c, n, k, attempts: int]
+type Assignment = tuple[C, N, K, attempts: int]
 var assignmentChannels: array[threadCount, Channel[Assignment]]
-
 for ch in assignmentChannels.mitems:
   open(ch)
 
-proc assign(assignment: Assignment) =
-  while true:
-    for ch in assignmentChannels.mitems:
-      if ch.ready:
-        ch.send(assignment)
-        return
+# When a thread gets a success count of 0, it responds with its
+# assignment so that we may skip all k'>k
+var responseChannels: array[threadCount, Channel[Assignment]]
+for ch in responseChannels.mitems:
+  open(ch)
 
 proc work(id: int) {.thread.} =
   while true:
-    let (C, N, K, attempts) = assignmentChannels[id].recv()
+    let assignment = assignmentChannels[id].recv()
+    let (C, N, K, attempts) = assignment
     let successes = generateSuccessCount(C, N, K, attempts)
     withLock(dbLock):
       defer: db.exec(sql"INSERT INTO data (c, n, k, attempts, successes) VALUES (?, ?, ?, ?, ?)", C, N, K, attempts, successes)
-    put(fmt"[Thread {($id).align($threadCount)}] [c={C}] [n={N}] [k={($K).align($N)}] :: {formatPercent(successes / attempts)}% ({($successes).align($attempts)}/{attempts})", id + 1)
+    put(fmt"[Thread {($id).align($threadCount)}] [c={C}] [n={N}] [k={($K).align($N)}] [a={attempts}] :: {formatPercent(successes / attempts)}% ({($successes).align($attempts)})", id + 1)
+    if successes == 0:
+      responseChannels[id].send(assignment)
 
 var threads: array[threadCount, Thread[int]]
-
 for i in 0 ..< threadCount:
   threads[i].createThread(work, i)
+
+proc tryAssign(assignment: Assignment): bool =
+  ## Returns if was successfully assigned
+  for ch in assignmentChannels.mitems:
+    if ch.ready:
+      ch.send(assignment)
+      return true
 
 #-- Main loop --#
 
@@ -105,18 +112,35 @@ let attemptsMax = 500_000
 for C in 2 .. 2:
   for N in 1 .. Inf:
     if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == N:
-      put(fmt"Skipping (n) c={C} n={N} as k={N} attempts={attemptsMax} has already been reached", threadCount + 2)
+      put(fmt"Skipping (n) c={C} n={N} as k={N} a={attemptsMax} has already been reached", threadCount + 2)
       continue
 
-    for K in 1 .. N:
-      if db.getValue(sql"SELECT MAX(attempts) FROM data WHERE c=? AND n=? AND k=?", C, N, K).parseInt.catch(ValueError, -1) == attemptsMax:
-        put(fmt"Skipping (k) in c={C} n={N} k={N} as attempts={attemptsMax} has already been reached.", threadCount + 2)
+    for attempts in countup(attemptsMin, attemptsMax, attemptsStep):
+      if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attempts).parseInt.catch(ValueError, -1) == N:
+        put(fmt"Skipping (a) c={C} n={N} a={attempts} as k={N} has already been reached.", threadCount + 2)
         continue
 
-      for attempts in countup(attemptsMin, attemptsMax, attemptsStep):
-        # If there is already a row for this data, skip it
-        if db.getValue(sql"SELECT rowid FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts) != "":
-          put(fmt"Skipping (attempts) c={C} n={N} k={K} attempts={attempts} as data has already been generated.", threadCount + 2)
-          continue
+      if db.getValue(sql"SELECT MIN(successes) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attempts).parseInt.catch(ValueError, -1) == 0:
+        put(fmt"Skipping (a) c={C} n={N} k=* a={attempts} as zeta_{attempts}({C}, {N}, k) = 0 has already been reached.", threadCount + 2)
+        continue
 
-        assign((C, N, K, attempts))
+      block nextA:
+        for K in 1 .. N:
+          # If there is already a row for this data, skip it
+          if db.getValue(sql"SELECT rowid FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts) != "":
+            put(fmt"Skipping (k) c={C} n={N} k={K} a={attempts} as data has already been generated.", threadCount + 2)
+            continue
+
+          let assignment = (C, N, K, attempts)
+          while true:
+            # If any thread has responded with the current state, skip k'>k
+            for ch in responseChannels.mitems:
+              if ch.peek() > 0:
+                let response = ch.recv()
+                if response.C == C and response.N == N and response.attempts == attempts:
+                  put(fmt"Skipping c={C} n={N} k>{K} a={attempts} since zeta_{attempts}({C}, {N}, {K}) = 0", threadCount + 2)
+                  break nextA
+
+            # Else, try to assign another assignment
+            if tryAssign(assignment):
+              break
