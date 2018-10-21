@@ -93,7 +93,7 @@ def appx_zeta(n, k):
   """ zeta approximation derived deductively """
   C = 2.0
   B = 1 - C ** (1-k)
-  E = (n ** 2 - n) / (2 * (k - 1)) - k / 2
+  E = (2 - k) / 2 + (n**2 - n) / (2 * (k - 1))
   return 1 - B ** E
 
 def get_fitting_curve(**kwargs):
