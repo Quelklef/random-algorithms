@@ -1,9 +1,10 @@
 """
 Usage:
-  paper [--appendix]
+  paper [--ex]
 
 Options:
   -h --help    Show help
+  --ex         Use existing files
 """
 
 import os
@@ -30,6 +31,26 @@ matplotlib.use('TkAgg')
 
 conn = s3.connect("data.db")
 db = conn.cursor()
+if args["--ex"]:
+  # Make breaking changes such that DB execution almost always returns
+  # trash, and file saving is a noop
+
+  dummy = lambda ret: lambda *kargs, **kwargs: ret
+  plt.savefig = dummy(None)
+  plt.scatter = dummy(None)
+  plt.plot = dummy(None)
+  curve_fit = dummy(((0, 0, 0, 0), None))
+
+  dummy_rows = [[1] * 100] * 100
+  actual_db = db
+  class DBDummy():
+    def execute(self, sql, *args, **kwargs):
+      # Still need to be able to get list of ns
+      if sql.startswith("SELECT DISTINCT n"):
+        return actual_db.execute(sql, *args, **kwargs)
+      else:
+        return dummy_rows
+  db = DBDummy()
 
 C_i = 0
 N_i = 1
@@ -50,20 +71,43 @@ output_parts = []
 paper_fileloc = "paper.tex"
 
 # Define fitting curves
-def exponential(x, y0, A, k, x0):
-  return y0 + A * np.exp(k * (x - x0))
-def logistic(x, y0, A, k, x0):
-  return y0 + A / (1 + np.exp(-k * (x - x0)))
-def monomial(x, y0, A, k, x0):
-  return y0 + A * np.power(x - x0, k)
-def logarithmic(x, y0, A, k, x0):
-  return y0 + A * np.log(k * (x - x0))
+def exponential(x, y0, A, q, x0):
+  return y0 + A * np.exp(q * (x - x0))
+def logistic(x, y0, A, q, x0):
+  return y0 + A / (1 + np.exp(-q * (x - x0)))
+def monomial(x, y0, A, q, x0):
+  return y0 + A * np.power(x - x0, q)
+def logarithmic(x, y0, A, q, x0):
+  return y0 + A * np.log(q * (x - x0))
 def linear(x, y0, A):
   return y0 + A * x
 def reciprocal(x, y0, A):
   return y0 + A / x
-def arctan(x, y0, A, k, x0):
-  return y0 + A * np.arctan(k * (x - x0))
+def arctan(x, y0, A, q, x0):
+  return y0 + A * np.arctan(q * (x - x0))
+def tanh(x, y0, A, q, x0):
+  return y0 + A * np.tanh(q * (x - x0))
+def reciprocalSq(x, y0, A):
+  return y0 + A / x**2
+
+def appx_zeta(n, k):
+  """ zeta approximation derived deductively """
+  C = 2.0
+  B = 1 - C ** (1-k)
+  E = (n ** 2 - n) / (2 * (k - 1)) - k / 2
+  return 1 - B ** E
+
+def get_fitting_curve(**kwargs):
+  assert len(kwargs) == 1
+
+  if 'n' in kwargs:
+    def fitting(x, y0, A, q, x0):
+      return y0 + A * appx_zeta(kwargs['n'], q * (x - x0))
+  else:  # k
+    def fitting(x, y0, A, q, x0):
+      return y0 + A * appx_zeta(q * (x - x0), kwargs['k'])
+
+  return fitting
 
 def specify(template, **context):
   context = context or globals()
@@ -78,13 +122,13 @@ def specify(template, **context):
 def echo(s):
   output_parts.append(specify(s))
 
-def fit(xs, ys, func, p0, bounds=None):
+def fit(xs, ys, func, p0, bounds=None, **kwargs):
   """ Fit a curve over some xs and ys and plot it, returning fit params """
   params, covariance = curve_fit(func, xs, ys, p0=p0, maxfev=1000000)
   if not bounds:
     bounds = (min(xs), max(xs))
   sample_xs = np.linspace(*bounds, 200)
-  plt.plot(sample_xs, func(sample_xs, *params), linewidth=1.5)
+  plt.plot(sample_xs, func(sample_xs, *params), **kwargs)
   return params
 
 bold = {'c': 'r', 's': 30}
@@ -111,8 +155,7 @@ def graph(xs, ys, x_label, y_label, *, title=None, filename=None, fit_to=None, s
   return fileloc
 
 def img_latex(fileloc):
-  # TODO: 2.6
-  return specify(r"\includegraphics[width=5in]{[[ fileloc ]]}", fileloc=fileloc)
+  return specify(r"\includegraphics[width=2.6in]{[[ fileloc ]]}", fileloc=fileloc)
 
 def params_latex(f, params):
   param_names = inspect.getargspec(f)[0]
@@ -126,6 +169,7 @@ def params_latex(f, params):
 
   return result
 
+# LATEX
 echo(r"""
 \documentclass{article}
 \usepackage[utf8]{inputenc}
@@ -157,6 +201,8 @@ echo(r"""
 \setlength{\parskip}{\baselineskip}
 
 \begin{document}
+
+\newcommand{\floor}[1]{\left\lfloor #1 \right\rfloor}
 
 \maketitle
 
@@ -270,6 +316,80 @@ $$ \phantom{.} \zeta(c, n+1, k) \geq \zeta(c, n, k) . $$
 
 We may consider $a$ to be a ``confidence'' of the corresponding $\zeta$ approximation, since as $a$ approaches $\infty$, $\zeta_a$ should approach $\zeta$.
 
+\subsection{Approximating $\zeta$}
+
+Note that the probability of some random arithmetic subsquence of size $k$ being monochromatic is
+$$ \frac{c}{c^k} = c^{1-k} $$
+since out of $c^k$ possible colorings of the arithmetic subsequence, $c$ of them are monochromatic.
+
+We'd like to know the number of arithmetic subsequences for a given $c, n, k$. To do so, consider constructing an arithmetic subsequence. It would look something like:
+\begin{gather*}
+  \text{1. Choose starting point $p_0$.} \\
+  \text{2. Choose distance between items of arithmetic subsequence.}
+\end{gather*}
+
+To solve for this, consider assigning $n$ items indicies $1$ through $n$. Step (1.) has $n-k$ choices, and step (2.) has $\floor{ \frac{n-p_0-1}{k-1} }$ choices. Thus,
+\begin{align*}
+  \text{Number of arithmetic subsequences} &= \sum_{p_0=1}^{n-k}{\floor{\frac{n-p_0-1}{k-1}}} \\
+  &\approx \sum_{p_0=1}^{n-k}{\frac{n-p_0-1}{k-1}} \\
+  &= \frac{(n-k)(k+n-1)}{2(k-1)} \text{ according to Wolfram$\vert$Alpha}
+\end{align*}
+
+Now, $\zeta$, by definition, is the probability that a $c$-coloring of size $n$ has a MAS($k$). Note that this is equal to the probability that it is not the case that every arithmetic subsequence is not monochromatic; this may be reified as:
+\begin{align*}
+  \zeta &\approx 1 - (1 - P(\text{arithmetic subsequence is monochromatic}))^\text{number of arithmetic subsequences} \\
+  &= 1 - (1 - C^{1-k})^\frac{(n-k)(k+n-1)}{2(k-1)}
+\end{align*}
+and note that
+\begin{align*}
+  & \frac{(n-k)(k+n-1)}{2(k-1)} \\
+  =& \frac{(n-k)((k-1)+n)}{2(k-1)} \\
+  =& \frac{(n-k)(k-1) + (n-k)(n)}{2(k-1)} \\
+  =& \frac{n-k}{2} + \frac{n(n-k)}{2(k-1)} \\
+  =& \frac{n-k}{2} + \frac{n((n-1)-(k-1))}{2(k-1)} \\
+  =& \frac{n-k}{2} + \frac{n(n-1)}{2(k-1)} - \frac{n}{2} \\
+  =& \frac{n-k}{2} - \frac{n}{2} + \frac{n^2-n}{2(k-1)} \\
+  =& \frac{n^2-n}{2(k-1)} - \frac{k}{2} .
+\end{align*}
+plugging this back in, we get that
+$$ \zeta \approx 1-(1-c^{1-k})^{\frac{n^2-n}{2(k-1)}-\frac{k}{2}} . $$
+Call this approximation
+$$ \zeta^*. $$
+
+Though this turns out to be a fairly decent approximation, it is certainly somewhat incorrect. We know this because by the definition of $W(c,k)$, $\zeta(c, W(c,k), k)$ must be $1$; however, $1$ is not in $\zeta^*$'s domain.
+
+\subsection{Approximating $W(c,k)$}
+
+Using the $\zeta^*$ approximation of $\zeta$, we may find an approximation $W^*$ of $W$.
+
+We know that $W(c,k) = \text{ the first }n \mid \zeta(c,n,k)=1$, so we may find $W$ by solving for the $n$ satisfying $\zeta=1$ and therefore may find $W^*$ by solving for $n$ satisfying $\zeta^*=1$. However, as previously noted, $\zeta^*$ can never be $1$. Instead, we allow for some ``wiggle room'' by generalizing $\zeta^*$ to $\text{Fit}(\zeta^*)$ for
+$$\text{Fit}(f) = y_0 + Af(q(x - x_0));$$
+$y_0, A, q$, and $x_0$ are later derived empirically.
+
+\begin{align*}
+  \text{Fit}(\zeta^*) &= 1 \\
+  \text{Fit}(1-(1-c^{1-k})^{\frac{n^2-n}{2(k-1)}-\frac{k}{2}}) &= 1 \\
+  \text{let } \beta &= q(n-x_0) \\
+  y_0 + A \left(  1-(1-c^{1-k})^{\frac{\beta^2 - \beta}{2(k-1)}-\frac{k}{2}}  \right) &= 1 \\
+  (1-c^{1-k})^{\frac{\beta^2 - \beta}{2(k-1)}-\frac{k}{2}} &= 1 - \frac{1-y_0}{A} \\
+  \text{let } \chi &= \log_{1-c^{1-k}} \left( 1 - \frac{1-y_0}{A} \right) \\
+  \frac{\beta^2 - \beta}{2(k-1)} - \frac{k}{2} &= \chi \\
+\end{align*}
+which is true iff $\beta^2 - \beta - \chi = 0$ which is satisfied by
+\begin{align*}
+  \beta &= \frac{-(-1) \pm \sqrt{(-1)^2 - 4(1)(-\chi)}}{2} \\
+  &= (1/2)(1+\sqrt{1+4\chi})
+\end{align*}
+thus
+\begin{align*}
+  \beta &= (1/2)(1+\sqrt{1+4\chi}) \\
+  q(n-x_0) &= (1/2)(1+\sqrt{1+4\chi}) \\
+  n &= x_0 + \frac{1 + \sqrt{1+4\chi}}{2q}
+\end{align*}
+
+Thus,
+$$ \phantom{.} W(c,k) \approx x_0 + \frac{1 + \sqrt{1 + 4\chi}}{2q} . $$
+
 \section{Materials and Methods}
 
 The program generated different $\zeta_a(c,n,k)$ approximations and was roughly the following:
@@ -287,6 +407,8 @@ The program generated different $\zeta_a(c,n,k)$ approximations and was roughly 
   \EndLoop
   \State \Return $successes$
 \EndFunction
+
+\State
 
 \Function{trials}{}
   \For{$c$ \textbf{in} $[2]$} \Comment{Only concerned with $c=2$}
@@ -326,6 +448,8 @@ filename = graph(xs, ys, "k", "V", title="k vs V", filename="k-v.png")
 echo(fig_latex(img_latex(filename)))
 
 echo("\subsection{$k$ vs $\zeta$ for given $n$}")
+params_xs = []
+params_ys = []
 for n in ns:
   plt.suptitle(f"k vs zeta for n={n}")
   plt.xlabel("k")
@@ -335,17 +459,19 @@ for n in ns:
 
   xs, ys = None, None  # Leak this variable from the next loop
   for a in As:
-    xs, ys = unzip(list(map(lambda r: (r[K_i], zeta(r)), db.execute("SELECT * FROM data WHERE n=? AND attempts=? AND successes <> 0", (n, a))))) or ([], [])
+    xs, ys = unzip(list(map(lambda r: (r[K_i], zeta(r)), db.execute("SELECT * FROM data WHERE n=? AND attempts=? AND successes <> 0 AND successes <> attempts", (n, a))))) or ([], [])
     colors = [(1, 0, 1-(a/max(As)))] * len(xs)
     plt.scatter(xs, ys, c=colors, s=50)
 
   # Now the xs and ys are those for the most confident a
   xs1, ys1 = unzip([(x, y) for x, y in zip(xs, ys) if y != 1]) or ([], [])
-  if len(xs1) >= 2:
-    _ = fit(xs1, ys1, reciprocal, [1, 1])
+  # Tried: exponenial, arctan, tanh, reciprocal, logistic
   if len(xs1) >= 4:
-    _ = fit(xs1, ys1, exponential, [0, 1, -1, 0])
-    _ = fit(xs1, ys1, arctan, [np.pi / 2, 1, -1, 1])
+    fitting = get_fitting_curve(n=n)
+    params = fit(xs1, ys1, fitting, [1, 1, 1, 1], linewidth=3)
+
+    params_xs.append(n)
+    params_ys.append(params)
 
   print(f"Generated {fileloc}.")
   plt.savefig(fileloc)
@@ -353,23 +479,73 @@ for n in ns:
 
   echo(fig_latex(img_latex(fileloc)))
 
-echo("\subsection{$n$ vs $\zeta$ for given $k$}")
-for k in ks:
+for i, param_name in enumerate(["x0", "A", "q", "y0"]):
+  xs = params_xs
+  ys = list(map(lambda t: t[i], params_ys))
+
+  plt.suptitle(f"n vs {param_name}")
+  plt.xlabel("n")
+  plt.ylabel(param_name)
+  filename = f"n-fitting-{param_name}.png"
+  fileloc = os.path.join(target_dir, filename)
+
+  plt.scatter(xs, ys)
+
+  print(f"Generated {fileloc}.")
+  plt.savefig(fileloc)
+  plt.clf()
+
+echo(r"""
+\subsection{$n$ vs $\zeta$ for given $k$}
+""")
+params_xs = []
+params_ys = []
+for k in ks[:25]:  # After k=25, they're all just flat lines
+  if k % 3 == 0:
+    echo(r"""
+    \end{figure}
+    \begin{figure}[H]
+    """)
+
   plt.suptitle(f"n vs zeta for k={k}")
   plt.xlabel("n")
   plt.ylabel("zeta")
   filename = f"k={k}.png"
 
+  xs, ys = None, None
   for a in As:
     xs, ys = unzip(list(map(lambda r: (r[N_i], zeta(r)), db.execute("SELECT * FROM data WHERE k=? AND attempts=?", (k, a)))))
     colors = [(1, 0, 1-(a/max(As)))] * len(xs)
     plt.scatter(xs, ys, c=colors, s=50)
 
-  print(f"Generated {filename}.")
-  plt.savefig(filename)
+  if len(xs) >= 4:
+    fitting = get_fitting_curve(k=k)
+    params = fit(xs, ys, fitting, [1, 1, 1, 1], linewidth=3)
+
+    params_xs.append(n)
+    params_ys.append(params)
+
+  print(f"Generated {fileloc}.")
+  plt.savefig(fileloc)
   plt.clf()
 
-  echo(fig_latex(img_latex(filename)))
+  echo(fig_latex(img_latex(fileloc)))
+
+for i, param_name in enumerate(["x0", "A", "q", "y0"]):
+  xs = params_xs
+  ys = list(map(lambda t: t[i], params_ys))
+
+  plt.suptitle(f"n vs {param_name}")
+  plt.xlabel("n")
+  plt.ylabel(param_name)
+  filename = f"n-fitting-{param_name}.png"
+  fileloc = os.path.join(target_dir, filename)
+
+  plt.scatter(xs, ys)
+
+  print(f"Generated {fileloc}.")
+  plt.savefig(fileloc)
+  plt.clf()
 
 echo(r"""
 \newpage
