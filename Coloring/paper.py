@@ -31,6 +31,10 @@ matplotlib.use('TkAgg')
 
 conn = s3.connect("data.db")
 db = conn.cursor()
+
+db.execute("CREATE INDEX IF NOT EXISTS k_index ON data (k)")
+db.execute("CREATE INDEX IF NOT EXISTS n_index ON data (n)")
+
 if args["--ex"]:
   # Make breaking changes such that DB execution almost always returns
   # trash, and file saving is a noop
@@ -50,15 +54,6 @@ if args["--ex"]:
       else:
         return dummy_rows
   db = DBDummy()
-
-C_i = 0
-N_i = 1
-K_i = 2
-attempts_i = 3
-successes_i = 4
-
-def zeta(row):
-  return row[successes_i] / row[attempts_i]
 
 target_dir = "crunched/"
 
@@ -440,6 +435,15 @@ In reality, the program is somewhat more complicated handling more IO and runnin
 def fig_latex(latex):
   return r"""\begin{figure}[H] %s \end{figure}""" % latex
 
+def take_while(pred, seq):
+  i = 0
+  while i < len(seq) and pred(seq[i]):
+    i += 1
+
+  result = seq[:i]
+  del seq[:i]
+  return result
+
 As = list(map(itemgetter(0), db.execute("SELECT DISTINCT attempts FROM data ORDER BY attempts")))
 ns = list(map(itemgetter(0), db.execute("SELECT DISTINCT n FROM data ORDER BY n")))
 ks = list(map(itemgetter(0), db.execute("SELECT DISTINCT k FROM data ORDER BY k")))
@@ -452,6 +456,8 @@ echo(fig_latex(img_latex(filename)))
 echo("\subsection{$k$ vs $\zeta$ for given $n$}")
 params_xs = []
 params_ys = []
+
+rows = db.execute("SELECT n, k, attempts, successes FROM data WHERE successes <> 0 AND successes <> attempts ORDER BY n ASC, attempts ASC").fetchall()
 for n in ns:
   plt.suptitle(f"k vs zeta for n={n}")
   plt.xlabel("k")
@@ -461,7 +467,8 @@ for n in ns:
 
   xs, ys = None, None  # Leak this variable from the next loop
   for a in As:
-    xs, ys = unzip(list(map(lambda r: (r[K_i], zeta(r)), db.execute("SELECT * FROM data WHERE n=? AND attempts=? AND successes <> 0 AND successes <> attempts", (n, a))))) or ([], [])
+    relevant_rows = take_while(lambda r: r[0] == n and r[2] == a, rows)
+    xs, ys = unzip(list(map(lambda r: (r[1], r[2] / r[3]), relevant_rows))) or ([], [])
     colors = [(1, 0, 1-(a/max(As)))] * len(xs)
     plt.scatter(xs, ys, c=colors, s=50)
 
@@ -504,6 +511,8 @@ echo(r"""
 """)
 params_xs = []
 params_ys = []
+
+rows = db.execute("SELECT n, k, attempts, successes FROM data ORDER BY k ASC, attempts ASC").fetchall()
 for k in ks[:25]:  # After k=25, they're all just flat lines
   plt.suptitle(f"n vs zeta for k={k}")
   plt.xlabel("n")
@@ -513,7 +522,8 @@ for k in ks[:25]:  # After k=25, they're all just flat lines
 
   xs, ys = None, None
   for a in As:
-    xs, ys = unzip(list(map(lambda r: (r[N_i], zeta(r)), db.execute("SELECT * FROM data WHERE k=? AND attempts=?", (k, a)))))
+    relevant_rows = take_while(lambda r: r[1] == k and r[1] == a, rows)
+    xs, ys = unzip(list(map(lambda r: (r[0], r[2] / r[3]), relevant_rows))) or ([], [])
     colors = [(1, 0, 1-(a/max(As)))] * len(xs)
     plt.scatter(xs, ys, c=colors, s=50)
 
