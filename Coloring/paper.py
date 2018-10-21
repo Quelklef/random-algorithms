@@ -32,8 +32,8 @@ matplotlib.use('TkAgg')
 conn = s3.connect("data.db")
 db = conn.cursor()
 
-db.execute("CREATE INDEX IF NOT EXISTS k_index ON data (k)")
-db.execute("CREATE INDEX IF NOT EXISTS n_index ON data (n)")
+db.execute("CREATE INDEX IF NOT EXISTS ka_index ON data (k, attempts)")
+db.execute("CREATE INDEX IF NOT EXISTS na_index ON data (n, attempts)")
 
 if args["--ex"]:
   # Make breaking changes such that DB execution almost always returns
@@ -450,34 +450,33 @@ ks = list(map(itemgetter(0), db.execute("SELECT DISTINCT k FROM data ORDER BY k"
 
 echo("\subsection{$k$ vs $V$}")
 xs, ys = unzip(map(lambda r: (r[0], r[1]), db.execute("SELECT k, MIN(n) FROM data WHERE attempts=successes GROUP BY k, attempts")))
-filename = graph(xs, ys, "k", "V", title="k vs V", filename="k-v.png")
+filename = graph(xs, ys, "k", "V", title="k vs V", filename="k_v.png")
 echo(fig_latex(img_latex(filename)))
 
 echo("\subsection{$k$ vs $\zeta$ for given $n$}")
 params_xs = []
 params_ys = []
 
-rows = db.execute("SELECT n, k, attempts, successes FROM data WHERE successes <> 0 AND successes <> attempts ORDER BY n ASC, attempts ASC").fetchall()
-for n in ns:
+rows = db.execute("SELECT n, k, attempts, successes FROM data WHERE successes <> 0 AND successes <> attempts ORDER BY n ASC, attempts ASC, k DESC").fetchall()
+for n in ns[:25]:
   plt.suptitle(f"k vs zeta for n={n}")
   plt.xlabel("k")
   plt.ylabel("zeta")
   filename = f"n={n}.png"
   fileloc = os.path.join(target_dir, filename)
 
-  xs, ys = None, None  # Leak this variable from the next loop
+  xs, ys = [], []  # Leak this variable from the next loop
   for a in As:
     relevant_rows = take_while(lambda r: r[0] == n and r[2] == a, rows)
-    xs, ys = unzip(list(map(lambda r: (r[1], r[2] / r[3]), relevant_rows))) or ([], [])
-    colors = [(1, 0, 1-(a/max(As)))] * len(xs)
-    plt.scatter(xs, ys, c=colors, s=50)
+    if relevant_rows:
+      xs, ys = unzip(list(map(lambda r: (r[1], r[3] / r[2]), relevant_rows)))
+      colors = [(1, 0, 1-(a/max(As)))] * len(xs)
+      plt.scatter(xs, ys, c=colors, s=50)
 
-  # Now the xs and ys are those for the most confident a
-  xs1, ys1 = unzip([(x, y) for x, y in zip(xs, ys) if y != 1]) or ([], [])
   # Tried: exponenial, arctan, tanh, reciprocal, logistic
-  if len(xs1) >= 4:
+  if len(xs) >= 4:
     fitting = get_fitting_curve(n=n)
-    params = fit(xs1, ys1, fitting, [1, 1, 1, 1], linewidth=3)
+    params = fit(xs, ys, fitting, [1, 1, 1, 1], linewidth=3)
 
     params_xs.append(n)
     params_ys.append(params)
@@ -489,16 +488,15 @@ for n in ns:
   echo(fig_latex(img_latex(fileloc)))
 
 for i, param_name in enumerate(["x0", "A", "q", "y0"]):
-  xs = params_xs
-  ys = list(map(lambda t: t[i], params_ys))
-
   plt.suptitle(f"n vs {param_name}")
   plt.xlabel("n")
   plt.ylabel(param_name)
-  filename = f"n-fitting-{param_name}.png"
+  # The filename should have underscores rather than dashes.
+  # If it uses dashes, matplotlib breaks for some reason
+  filename = f"n_fitting_{param_name}.png"
   fileloc = os.path.join(target_dir, filename)
 
-  plt.scatter(xs, ys)
+  plt.scatter(params_xs, list(map(lambda t: t[i], params_ys)))
 
   print(f"Generated {fileloc}.")
   plt.savefig(fileloc)
@@ -513,19 +511,20 @@ params_xs = []
 params_ys = []
 
 rows = db.execute("SELECT n, k, attempts, successes FROM data ORDER BY k ASC, attempts ASC").fetchall()
-for k in ks[:25]:  # After k=25, they're all just flat lines
+for k in ks[:25]:
   plt.suptitle(f"n vs zeta for k={k}")
   plt.xlabel("n")
   plt.ylabel("zeta")
   filename = f"k={k}.png"
   fileloc = os.path.join(target_dir, filename)
 
-  xs, ys = None, None
+  xs, ys = [], []
   for a in As:
-    relevant_rows = take_while(lambda r: r[1] == k and r[1] == a, rows)
-    xs, ys = unzip(list(map(lambda r: (r[0], r[2] / r[3]), relevant_rows))) or ([], [])
-    colors = [(1, 0, 1-(a/max(As)))] * len(xs)
-    plt.scatter(xs, ys, c=colors, s=50)
+    relevant_rows = take_while(lambda r: r[1] == k and r[2] == a, rows)
+    if relevant_rows:
+      xs, ys = unzip(list(map(lambda r: (r[0], r[3] / r[2]), relevant_rows)))
+      colors = [(1, 0, 1-(a/max(As)))] * len(xs)
+      plt.scatter(xs, ys, c=colors, s=50)
 
   if len(xs) >= 4:
     fitting = get_fitting_curve(k=k)
@@ -541,16 +540,13 @@ for k in ks[:25]:  # After k=25, they're all just flat lines
   echo(fig_latex(img_latex(fileloc)))
 
 for i, param_name in enumerate(["x0", "A", "q", "y0"]):
-  xs = params_xs
-  ys = list(map(lambda t: t[i], params_ys))
-
   plt.suptitle(f"k vs {param_name}")
   plt.xlabel("k")
   plt.ylabel(param_name)
   filename = f"n-fitting-{param_name}.png"
   fileloc = os.path.join(target_dir, filename)
 
-  plt.scatter(xs, ys)
+  plt.scatter(params_xs, list(map(lambda t: t[i], params_ys)))
 
   print(f"Generated {fileloc}.")
   plt.savefig(fileloc)
