@@ -35,18 +35,17 @@ if args["--ex"]:
   # Make breaking changes such that DB execution almost always returns
   # trash, and file saving is a noop
 
-  dummy = lambda ret: lambda *kargs, **kwargs: ret
-  plt.savefig = dummy(None)
-  plt.scatter = dummy(None)
-  plt.plot = dummy(None)
-  curve_fit = dummy(((0, 0, 0, 0), None))
+  class PlotDummy():
+    def __getattr__(self, *args, **kwargs):
+      return lambda *args, **kwargs: (None, None)
+  plt = PlotDummy()
 
   dummy_rows = [[1] * 100] * 100
   actual_db = db
   class DBDummy():
     def execute(self, sql, *args, **kwargs):
-      # Still need to be able to get list of ns
-      if sql.startswith("SELECT DISTINCT n"):
+      # Still need to be able to get these lists
+      if sql.startswith("SELECT DISTINCT"):
         return actual_db.execute(sql, *args, **kwargs)
       else:
         return dummy_rows
@@ -209,6 +208,7 @@ echo(r"""
 \newpage
 
 \begin{abstract}
+TODO: REDO
 We programmatically generated and then analyzed data to find an approximation function for the Van der Waerden function $W(c,k)$ for $c=2$. Data generated were the probabilities for some arbitrary $c$-coloring of size $n$ to contain a monochromatic arithmetic subset of size $k$. Two approaches were taken to approximate $W(2, k)$. First, we found the first $n$ for each $k$ to result in a 100\% probability; approximating this $n$ for a given $k$ is approximating $W(2, k)$. Second, we derived a function approximating, for some $k$ and $n$, the probability that an arbitrary 2-coloring of size $n$ contains a monochromatic subsequence of size $k$. Solving to find the $n$ for which the probability is 100\%, we get an approximation for $W(2, k)$.
 
 In fact, we dealt with (a subset of) ``patterns of $p$'', which is a generalization of monochromatic arithmetic subsequences of size $k$ in which one or more elements may be missing. Data were generated regarding patterns, but much less analysis was done in comparison to the data regarding monochromatic arithmetic subsequences.
@@ -367,15 +367,17 @@ $$\text{Fit}(f) = y_0 + Af(q(x - x_0));$$
 $y_0, A, q$, and $x_0$ are later derived empirically.
 
 \begin{align*}
-  \text{Fit}(\zeta^*) &= 1 \\
+  \text{Fit}(\zeta^*(n)) &= 1 \\
   \text{Fit}(1-(1-c^{1-k})^{\frac{n^2-n}{2(k-1)}-\frac{k}{2}}) &= 1 \\
   \text{let } \beta &= q(n-x_0) \\
   y_0 + A \left(  1-(1-c^{1-k})^{\frac{\beta^2 - \beta}{2(k-1)}-\frac{k}{2}}  \right) &= 1 \\
   (1-c^{1-k})^{\frac{\beta^2 - \beta}{2(k-1)}-\frac{k}{2}} &= 1 - \frac{1-y_0}{A} \\
-  \text{let } \chi &= \log_{1-c^{1-k}} \left( 1 - \frac{1-y_0}{A} \right) \\
+  \frac{\beta^2 - \beta}{2(k-1)} - \frac{k}{2} = log_{1-c^{1-k}}\left( 1-\frac{1-y_0}{A} \right) \\
+  \text{let } \chi &= \left( 2(k-1) \right) \left( \log_{1-c^{1-k}} \left( 1 - \frac{1-y_0}{A} \right) \right) \\
+  \beta^2 - \beta = \chi
   \frac{\beta^2 - \beta}{2(k-1)} - \frac{k}{2} &= \chi \\
 \end{align*}
-which is true iff $\beta^2 - \beta - \chi = 0$ which is satisfied by
+which is true if $\beta^2 - \beta - \chi = 0$; this is satisfied by
 \begin{align*}
   \beta &= \frac{-(-1) \pm \sqrt{(-1)^2 - 4(1)(-\chi)}}{2} \\
   &= (1/2)(1+\sqrt{1+4\chi})
@@ -388,14 +390,14 @@ thus
 \end{align*}
 
 Thus,
-$$ \phantom{.} W(c,k) \approx x_0 + \frac{1 + \sqrt{1 + 4\chi}}{2q} . $$
+$$ \phantom{.} W(c,k) \approx x_0 + \frac{1 + \sqrt{1 + 4    \left( 2(k-1) \right) \left( \log_{1-c^{1-k}} \left( 1 - \frac{1-y_0}{A} \right) \right)    }}{2q} . $$
 
 \section{Materials and Methods}
 
 The program generated different $\zeta_a(c,n,k)$ approximations and was roughly the following:
 
 \begin{algorithm}[H]
-\begin{algorithmic}[1]
+\begin{algorithmic}
 
 \Function{generate-success-count}{$c$, $n$, $k$, $a$} \Comment{Approximates $a\cdot\zeta_a(c,n,k)$}
   \State $successes \gets 0$
@@ -495,22 +497,19 @@ for i, param_name in enumerate(["x0", "A", "q", "y0"]):
   plt.savefig(fileloc)
   plt.clf()
 
+  echo(fig_latex(img_latex(fileloc)))
+
 echo(r"""
 \subsection{$n$ vs $\zeta$ for given $k$}
 """)
 params_xs = []
 params_ys = []
 for k in ks[:25]:  # After k=25, they're all just flat lines
-  if k % 3 == 0:
-    echo(r"""
-    \end{figure}
-    \begin{figure}[H]
-    """)
-
   plt.suptitle(f"n vs zeta for k={k}")
   plt.xlabel("n")
   plt.ylabel("zeta")
   filename = f"k={k}.png"
+  fileloc = os.path.join(target_dir, filename)
 
   xs, ys = None, None
   for a in As:
@@ -522,7 +521,7 @@ for k in ks[:25]:  # After k=25, they're all just flat lines
     fitting = get_fitting_curve(k=k)
     params = fit(xs, ys, fitting, [1, 1, 1, 1], linewidth=3)
 
-    params_xs.append(n)
+    params_xs.append(k)
     params_ys.append(params)
 
   print(f"Generated {fileloc}.")
@@ -535,8 +534,8 @@ for i, param_name in enumerate(["x0", "A", "q", "y0"]):
   xs = params_xs
   ys = list(map(lambda t: t[i], params_ys))
 
-  plt.suptitle(f"n vs {param_name}")
-  plt.xlabel("n")
+  plt.suptitle(f"k vs {param_name}")
+  plt.xlabel("k")
   plt.ylabel(param_name)
   filename = f"n-fitting-{param_name}.png"
   fileloc = os.path.join(target_dir, filename)
@@ -546,6 +545,8 @@ for i, param_name in enumerate(["x0", "A", "q", "y0"]):
   print(f"Generated {fileloc}.")
   plt.savefig(fileloc)
   plt.clf()
+
+  echo(fig_latex(img_latex(fileloc)))
 
 echo(r"""
 \newpage
