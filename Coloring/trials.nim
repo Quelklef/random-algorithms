@@ -112,42 +112,44 @@ let attemptsMin = 5_000
 let attemptsStep = 5_000
 let attemptsMax = 500_000
 
-for C in 2 .. 2:
-  for N in 1 .. Inf:
-    if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == N:
-      put(fmt"Skipping (n) c={C} n={N} k=* a=* as k={N} a={attemptsMax} has already been reached", threadCount + 2)
-      continue
+var C = db.getValue(sql"SELECT MAX(c) FROM data").parseInt.catch(ValueError, 2)
+var N = db.getValue(sql"SELECT MAX(n) FROM data WHERE c=?", C).parseInt.catch(ValueError, 1)
+var A = db.getValue(sql"SELECT MAX(attempts) FROM data WHERE C=? AND n=?", C, N).parseInt.catch(ValueError, attemptsMin)
+var K = db.getValue(sql"SELECT MAX(k) FROM data WHERE C=? AND n=? AND attempts=?", C, N, A).parseInt.catch(ValueError, 1)
 
-    if db.getValue(sql"SELECT MIN(successes) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == 0:
-      put(fmt"Skipping (n) c={C} n={N} k=* a=* as zeta_{attemptsMax}({C}, {N}, k) = 0 has already been reached.", threadCount + 2)
-      continue
+# Order of iteration: C, N, A, k
 
-    for attempts in countup(attemptsMin, attemptsMax, attemptsStep):
-      if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attempts).parseInt.catch(ValueError, -1) == N:
-        put(fmt"Skipping (a) c={C} n={N} k=* a={attempts} as k={N} has already been reached.", threadCount + 2)
-        continue
+template incN =
+  N.inc()
 
-      if db.getValue(sql"SELECT MIN(successes) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attempts).parseInt.catch(ValueError, -1) == 0:
-        put(fmt"Skipping (a) c={C} n={N} k=* a={attempts} as zeta_{attempts}({C}, {N}, k) = 0 has already been reached.", threadCount + 2)
-        continue
+template incA =
+  if A == attemptsMax:
+    incN()
+  else:
+    A += attemptsStep
 
-      block nextA:
-        for K in 1 .. N:
-          # If there is already a row for this data, skip it
-          if db.getValue(sql"SELECT rowid FROM data WHERE c=? AND n=? AND k=? AND attempts=?", C, N, K, attempts) != "":
-            put(fmt"Skipping (k) c={C} n={N} k={K} a={attempts} as data has already been generated.", threadCount + 2)
-            continue
+template incK =
+  if K == N:
+    K = 1
+    incA()
+  else:
+    K.inc()
 
-          let assignment = (C, N, K, attempts)
-          while true:
-            # If any thread has responded with the current state, skip k'>k
-            for ch in responseChannels.mitems:
-              if ch.peek() > 0:
-                let response = ch.recv()
-                if response.C == C and response.N == N and response.attempts == attempts:
-                  put(fmt"Skipping c={C} n={N} k>{K} a={attempts} since zeta_{attempts}({C}, {N}, {K}) = 0", threadCount + 2)
-                  break nextA
+template nextAssignment =
+  incK()
 
-            # Else, try to assign another assignment
-            if tryAssign(assignment):
-              break
+proc checkResponses(assignment: Assignment): bool =
+  # If any thread has responded with the current state, skip k'>k
+  for ch in responseChannels.mitems:
+    if ch.peek() > 0:
+      let response = ch.recv()
+      if response.C == assignment.C and response.N == assignment.N and response.attempts == assignment.attempts:
+        put(fmt"Skipping c={assignment.C} n={assignment.N} k>{assignment.K} a={assignment.attempts} since zeta_{assignment.attempts}({assignment.C}, {assignment.N}, {assignment.K}) = 0", threadCount + 2)
+        return true
+
+while true:
+  let assignment = (C, N, K, A)
+  while true:
+    if checkResponses(assignment) or tryAssign(assignment):
+      break
+  nextAssignment()
