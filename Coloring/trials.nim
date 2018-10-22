@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS data (
 )
 """)
 
+db.exec(sql"DROP INDEX IF EXISTS ka_index")
+db.exec(sql"DROP INDEX IF EXISTS na_index")
+
 var dbLock: Lock
 initLock(dbLock)
 
@@ -112,12 +115,16 @@ let attemptsMax = 500_000
 for C in 2 .. 2:
   for N in 1 .. Inf:
     if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == N:
-      put(fmt"Skipping (n) c={C} n={N} as k={N} a={attemptsMax} has already been reached", threadCount + 2)
+      put(fmt"Skipping (n) c={C} n={N} k=* a=* as k={N} a={attemptsMax} has already been reached", threadCount + 2)
+      continue
+
+    if db.getValue(sql"SELECT MIN(successes) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attemptsMax).parseInt.catch(ValueError, -1) == 0:
+      put(fmt"Skipping (n) c={C} n={N} k=* a=* as zeta_{attemptsMax}({C}, {N}, k) = 0 has already been reached.", threadCount + 2)
       continue
 
     for attempts in countup(attemptsMin, attemptsMax, attemptsStep):
       if db.getValue(sql"SELECT MAX(k) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attempts).parseInt.catch(ValueError, -1) == N:
-        put(fmt"Skipping (a) c={C} n={N} a={attempts} as k={N} has already been reached.", threadCount + 2)
+        put(fmt"Skipping (a) c={C} n={N} k=* a={attempts} as k={N} has already been reached.", threadCount + 2)
         continue
 
       if db.getValue(sql"SELECT MIN(successes) FROM data WHERE c=? AND n=? AND attempts=?", C, N, attempts).parseInt.catch(ValueError, -1) == 0:
