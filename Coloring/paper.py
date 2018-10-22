@@ -458,7 +458,7 @@ params_xs = []
 params_ys = []
 
 rows = db.execute("SELECT n, k, attempts, successes FROM data WHERE successes <> 0 AND successes <> attempts ORDER BY n ASC, attempts ASC, k DESC").fetchall()
-for n in ns[:25]:
+for n in ns:
   plt.suptitle(f"k vs zeta for n={n}")
   plt.xlabel("k")
   plt.ylabel("zeta")
@@ -511,7 +511,7 @@ params_xs = []
 params_ys = []
 
 rows = db.execute("SELECT n, k, attempts, successes FROM data ORDER BY k ASC, attempts ASC").fetchall()
-for k in ks[:25]:
+for k in ks:
   plt.suptitle(f"n vs zeta for k={k}")
   plt.xlabel("n")
   plt.ylabel("zeta")
