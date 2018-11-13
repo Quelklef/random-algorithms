@@ -112,3 +112,9 @@ proc `or`*(col0: TwoColoring; col1: Coloring): Coloring =
   for i in 0 ..< min(col0.data.len, col1.data.len):
     resultData[i] = col0.data[i] or col1.data[i]
   return TwoColoring(N: max(col0.N, col1.N), data: resultData)
+
+func `+=`*(col: var TwoColoring, amt: uint64) =
+  ## May overflow
+  col.data[0] += amt
+  if col.data.len > 1:
+    col.data[1] += (col.data[0] < amt).uint64

@@ -1,10 +1,12 @@
 """
 Usage:
-  paper [--ex]
+  paper [--ex] [--min] [--nofun]
 
 Options:
   -h --help    Show help
   --ex         Use existing files
+  --min        Do not generate graphs
+  --nofun      Remove iffy stuff (for Regeneron STS)
 """
 
 import os
@@ -19,12 +21,13 @@ from operator import itemgetter
 import inspect
 from statistics import mean
 from time import sleep
+from functools import partial
 import sqlite3 as s3
 
-args = docopt(__doc__)
+clargs = docopt(__doc__)
 
-def unzip(l):
-  return tuple(map(list, zip(*l)))
+def unzip(n, l):
+  return tuple(map(list, zip(*l))) or tuple([] for _ in range(n))
 
 # Make matplotlib faster
 matplotlib.use('TkAgg')
@@ -35,7 +38,7 @@ db = conn.cursor()
 db.execute("CREATE INDEX IF NOT EXISTS ka_index ON data (k, attempts)")
 db.execute("CREATE INDEX IF NOT EXISTS na_index ON data (n, attempts)")
 
-if args["--ex"]:
+if clargs["--ex"] or clargs["--min"]:
   # Make breaking changes such that DB execution almost always returns
   # trash, and file saving is a noop
 
@@ -44,15 +47,14 @@ if args["--ex"]:
       return lambda *args, **kwargs: (None, None)
   plt = PlotDummy()
 
-  dummy_rows = [[1] * 100] * 100
   actual_db = db
   class DBDummy():
     def execute(self, sql, *args, **kwargs):
       # Still need to be able to get these lists
-      if sql.startswith("SELECT DISTINCT"):
+      if not clargs["--min"] and sql.startswith("SELECT DISTINCT"):
         return actual_db.execute(sql, *args, **kwargs)
       else:
-        return dummy_rows
+        return actual_db.execute("SELECT * FROM data WHERE 1=0")
   db = DBDummy()
 
 target_dir = "crunched/"
@@ -73,8 +75,8 @@ def monomial(x, y0, A, q, x0):
   return y0 + A * np.power(x - x0, q)
 def logarithmic(x, y0, A, q, x0):
   return y0 + A * np.log(q * (x - x0))
-def linear(x, y0, A):
-  return y0 + A * x
+def linear(x, y_0, A):
+  return y_0 + A * x
 def reciprocal(x, y0, A):
   return y0 + A / x
 def arctan(x, y0, A, q, x0):
@@ -86,22 +88,19 @@ def reciprocalSq(x, y0, A):
 
 def appx_zeta(n, k):
   """ zeta approximation derived deductively """
-  C = 2.0
-  B = 1 - C ** (1-k)
-  E = (2 - k) / 2 + (n**2 - n) / (2 * (k - 1))
-  return 1 - B ** E
+  c = 2.0
+  p_AS_is_MAS = c ** (1-k)
+  n_COL = c ** n
+  epsilon = 0
+  #epsilon = (k-2)/(k-1) * (n-k+1)
+  n_AS_per_COL = (n**2 - n) / (2*(k-1)) + (2-k)/2 - epsilon
+  v = 1.0 - (1.0 - p_AS_is_MAS) ** (n_COL * n_AS_per_COL)
+  return v
 
-def get_fitting_curve(**kwargs):
-  assert len(kwargs) == 1
-
-  if 'n' in kwargs:
-    def fitting(x, y0, A, q, x0):
-      return y0 + A * appx_zeta(kwargs['n'], q * (x - x0))
-  else:  # k
-    def fitting(x, y0, A, q, x0):
-      return y0 + A * appx_zeta(q * (x - x0), kwargs['k'])
-
-  return fitting
+def appx_zeta_adj(n, k, attempts):
+  """ round the zeta appx'n to be able to hit 1 and 0, "within one coloring" """
+  #return np.round(appx_zeta(n, k) * attempts) / attempts
+  return appx_zeta(n, k)
 
 def specify(template, **context):
   context = context or globals()
@@ -119,8 +118,7 @@ def echo(s):
 def fit(xs, ys, func, p0, bounds=None, **kwargs):
   """ Fit a curve over some xs and ys and plot it, returning fit params """
   params, covariance = curve_fit(func, xs, ys, p0=p0, maxfev=1000000)
-  if not bounds:
-    bounds = (min(xs), max(xs))
+  bounds = bounds or (min(xs), max(xs))
   sample_xs = np.linspace(*bounds, 200)
   plt.plot(sample_xs, func(sample_xs, *params), **kwargs)
   return params
@@ -152,7 +150,7 @@ def img_latex(fileloc):
   return specify(r"\includegraphics[width=2.6in]{[[ fileloc ]]}", fileloc=fileloc)
 
 def params_latex(f, params):
-  param_names = inspect.getargspec(f)[0]
+  param_names = inspect.getargspec(f)[0][1:]
 
   result = r"\begin{tabular}{c|l}"
   lines = []
@@ -169,9 +167,16 @@ echo(r"""
 \usepackage[utf8]{inputenc}
 \usepackage{mathtools}
 
-\title{Empirically Deriving an Approximation for the Van der Waerden Function $W(c,k)$ at $c=2$.}
-\author{Eli Maynard, Merlin Maynard}
-\date{October 2018}
+\title{A Lower Bound and an Approximation for The Van der Waerden Number function $W(c,k)$}
+""")
+
+if not clargs["--nofun"]:
+  echo(r"\author{Eli Maynard\thanks{With help from Noah Gleason and Ryan Tse of Montgomery Blair High School}\\{\small Advised by William Gasarch of the University of Maryland}")
+else:
+  echo(r"\author{Eli Maynard}")
+
+echo(r"""
+\date{November 2018}
 
 \usepackage{natbib}
 \usepackage{graphicx}
@@ -181,7 +186,7 @@ echo(r"""
 \usepackage{algorithm}
 \usepackage[noend]{algpseudocode}
 \usepackage{bm}
-
+\usepackage{subcaption}
 \usepackage{amsthm}
 \usepackage{thmtools}
 \usepackage{enumitem} % To avoid "Too deeply nested error"
@@ -203,10 +208,7 @@ echo(r"""
 \newpage
 
 \begin{abstract}
-TODO: REDO
-We programmatically generated and then analyzed data to find an approximation function for the Van der Waerden function $W(c,k)$ for $c=2$. Data generated were the probabilities for some arbitrary $c$-coloring of size $n$ to contain a monochromatic arithmetic subset of size $k$. Two approaches were taken to approximate $W(2, k)$. First, we found the first $n$ for each $k$ to result in a 100\% probability; approximating this $n$ for a given $k$ is approximating $W(2, k)$. Second, we derived a function approximating, for some $k$ and $n$, the probability that an arbitrary 2-coloring of size $n$ contains a monochromatic subsequence of size $k$. Solving to find the $n$ for which the probability is 100\%, we get an approximation for $W(2, k)$.
-
-In fact, we dealt with (a subset of) ``patterns of $p$'', which is a generalization of monochromatic arithmetic subsequences of size $k$ in which one or more elements may be missing. Data were generated regarding patterns, but much less analysis was done in comparison to the data regarding monochromatic arithmetic subsequences.
+We deductively derived two lower bounds and empirically derived an approximation of the Van der Waerden number function $W(c,k)$ at $c=2$. $W(c,k)$ gives the lowest $n\in\mathbb{N} \mid \forall c$\-coloring $C$ of size $n$, $\exists$ some monochromatic arithmetic subsequence of size $k$ in $C$. To arrive at the approxmiation, we programmatically generated and then analyzed approximations of probabilities that some arbitrary $2$-coloring of size $n$ contains a monochromatic arithmetic subset of size $k$. We iteratively found the lowest $n$ for each $k$ to produce a 100\% probability; approximating this $n$ for a given $k$ is approximating $W(2, k)$.
 \end{abstract}
 
 \newpage
@@ -215,184 +217,156 @@ In fact, we dealt with (a subset of) ``patterns of $p$'', which is a generalizat
 
 \subsection{$c$-Colorings}
 
-A \textit{c-coloring} of size $n$ is a sequence of $n$ elements, where each elements is one of $c$ distinct items, or ``colors''. For instance, a 3-coloring of size $4$ may be
-$$\phantom{.}\text{Red Red Blue Purple}.$$
-
-In this paper, $c$ will never exceed $9$, so $c$-colorings will be represented as a number in which each digit corresponds to one color. The previous coloring would be written as just
-$$\phantom{,}0012;$$
-$0$ for $\text{Red}$, $1$ for $\text{Blue}$, and $2$ for $\text{Purple}$.
+A \textit{c-coloring} of size $n$ is a sequence of $n$ elements, where each element is one of $c$ distinct items, or ``colors''. For instance, a 3-coloring of size $4$ may be ``$\text{Red Red Blue Purple}$''. In this paper, $c$ will never exceed $9$, so $c$-colorings will be represented as a number in which each digit corresponds to one color. The previous coloring would be written as just ``$0012$''; $0$ for $\text{Red}$, $1$ for $\text{Blue}$, and $2$ for $\text{Purple}$.
 
 \subsection{Monochromatism and Monochromatic Arithmetic Subsequences}
 
-A \textit{monochromatic arithmetic subsequence} of size $k$, or \textit{MAS(k)}\footnote{Referred to in some other texts a \textit{size-}$k$ \textit{arithmetic progression}}, is a selection of items from a $c$-coloring such that all items are the same distance apart and the same color. For instance:
+A \textit{monochromatic arithmetic subsequence} of size $k$, or \textit{MAS(k)}\footnote{Also known as a \textit{size-}$k$ \textit{arithmetic progression}}, is a selection of items from a $c$-coloring such that all items are the same distance apart and the same color. For instance:
 \begin{align*}
-    \text{Coloring: }& 2302310311 \\
-    \text{MAS($3$): }& \text{\phantom{2}3\phantom{00}3\phantom{00}3\phantom{00}}
+    \text{Coloring: }& 230112320103231133 \\
+    \text{MAS($4$): }& \text{\phantom{2}3\phantom{0110}3\phantom{0010}3\phantom{0010}3}
 \end{align*}
-The indicies of the $3$s are $1, 3, \text{and } 5,$ respectively. Since $5 - 3 = 3 - 1 = 2$, the subsequence is arithmetic; since $3 = 3 = 3$, it is monochromatic; therefore, it is a MAS.
+This paper will use 1-indexing. So, the indicies of the $3$s are $2, 7, 12, \text{and } 17,$ respectively. Since there is a fixed distance between each item, i.e., $17 - 12 = 12 - 7 = 7 - 2 = 5$, the subsequence is arithmetic; since each item is the same color, i.e., $3 = 3 = 3 = 3$, it is monochromatic; therefore, it is a MAS; since it has 4 items, it is a MAS(4).
 
 \subsection{Van der Waerden's Theorem}
 
 Van der Waerden's Theorem states that
-$$\forall k,c \in \mathbb{N}, \exists n \in \mathbb{N} \mid \forall c\text{-coloring } C\text{ of size } n, C \text{ has some MAS} (k)
+$$\phantom{.}\forall k,c \in \mathbb{N}, \exists n \in \mathbb{N} \mid \forall c\text{-coloring } C\text{ of size } n, C \text{ has some MAS} (k) .
 $$
 \noindent
-The smallest satisfactory $n$ for a given $c, k$ is denoted $W(c, k)$.
+The smallest satisfactory $n$ for a given $c, k$ is denoted $W(c, k)$; this function is the ``Van der Waerden number function''.
 
-That is, given a number of colorings $c$ and subsequence size $k$, there exists some $W(c, k)$; any $c$-coloring of the size $W(c, k)$ has a monochromatic arithmetic subsequence of size $k$. Furthermore, this property doesn't hold for any natural less than $W(c, k)$.
+That is, given a number of colorings $c$ and subsequence size $k$, there exists some $W(c, k)$; any $c$-coloring of the size $W(c, k)$ has a monochromatic arithmetic subsequence of size $k$. Furthermore, this property doesn't hold for any Natural number less than $W(c, k)$.
+""")
 
-Consider an example. Choose a number... Unfortunately, since this is a paper, I cannot know the number you chose. I'll assume it's 10. So let $k=10$. Then consider the natural numbers $\mathbb{N}$ in which we classify each number as either a prime or a composite. Van der Waerden's theorem guarantees that we can always find $k=10$ numbers evenly spaced which are either all prime or all composite.
+t = "Consider an example. %s Then consider the natural numbers $\mathbb{N}$ in which we classify each number as either a prime or a composite. This is two categories, so $c=2$. Van der Waerden's theorem guarantees that we can always find $k=10$ numbers evenly spaced which are either all prime or all composite in any subsequence of $\mathbb{N}$ of size $\geq W(2,10)$."
+if not clargs["--nofun"]:
+  echo(t % "Choose a number... Unfortunately, since this is a paper, I cannot know the number you chose. I'll assume it's 10. So let $k=10$.")
+else:
+  echo(t % "Take $k=10$.")
 
-In fact, Van der Waerden's Theorem is even more general. We can let $k$ be any number, and we can split the naturals into any number $c$ of partitionings and always find $k$ evenly-spaced numbers in a row which are all in the same partition. Furthermore, Van der Waerden's theorem says that you don't need \textit{all} the naturals, just ``enough''. How much is ``enough'' is unknown in general and is denoted by the function $W(c,k)$.
+echo(r"""
+Note that, as well as colorings smaller than $W(c,k)$ \textit{not} being guaranteed a MAS($k$) (due to $W(c,k)$ being the minimal value), all colorings greater than $W(c,k)$ \textit{are} guaranteed a MAS($k$). This is because all colorings larger than $W(c,k)$ contain a coloring of the size $W(c,k)$, which has a guaranteed MAS($k$).\footnote{As a sidenote, this means that, $W(c,k)$ ``splits'' $\mathbb{N}$ into two contiguous sections: numbers for which $c$-colorings of that size are not guaranteed a MAS($k$), and numbers for which $c$-colorings of that size are guaranteed to have a MAS($k$).}
 
-This is Van der Warden's theorem. But why do we care? Why do we care about approximating $W(c,k)$? According to William Gasarch of the University of Maryland, ``There are NO applications of [Van der Waerden's] theorem.''
+\subsection{Motivation for Research}
 
-Note that, as well as colorings smaller than $W(c,k)$ \textit{not} being guaranteed a MAS($k$) (due to $W(c,k)$ being the minimal value), all colorings bigger than $W(c,k)$ \textit{are} guaranteed a MAS($k$). This is because all colorings larger than $W(c,k)$ contain a coloring of the size $W(c,k)$, which has a guaranteed MAS($k$). Thus, $W(c,k)$ ``splits'' $\mathbb{N}$ into two contiguous sections: numbers for which $c$-colorings of that size are not guaranteed a MAS($k$), and numbers for which $c$-colorings of that size are guaranteed have a MAS($k$).
+Information about $W(c,k)$ does not immediately lend itself into any particular application. It is, however, part of Ramsey Theory, which continues to find applications, both in the theoretical: ``Logic [...] Concrete Complexity [...] Complexity Classes [...]  Parallelism [...] Algorithms [... and] Computational Geometry'' \citep{TheoreticalApplications}, and the concrete: ``communications, information retrieval, [...] and decisionmaking'' \citep{ConcreteApplications}. Due to the continued application of Ramsey Theory as a whole, we have faith that Van der Waerden's theorem will eventually find practical use.
 
-\subsection{A Lower Bound for $W(c, k)$}
+% Why do we care about approximating $W(c,k)$? According to William Gasarch of the University of Maryland, ``There are NO applications of [Van der Waerden's] theorem.''
+""")
 
-Since $\mathbb{N}$ is ``split'' into the ``haves'' and ``have-nots'', finding a lower bound for $W(c, k)$ may be accomplished by finding a function $f \mid \forall c, k\in \mathbb{N}, \exists c$-coloring $C$ of size $f(c, k) \mid C$ has no MAS($k$); since $f$ produces only have-nots, it must be a lower bound. Thus, we attempt to find such an $f$:
+if not clargs["--nofun"]:
+  echo(r"\subsection{Some Facts}")
+else:
+  echo(r"\subsection{Relevant Facts}")
 
-The goal of the proof is to, given some $c$ and $k$, find a $B$ and $n$ for which:
-$$ \text{\#$c$-colorings of size $n$ with some MAS($k$)} \leq B < \text{\#$c$-colorings of size $n$} $$
-for if this is true, then so is
-$$ \text{\#$c$-colorings of size $n$ with some MAS($k$)} < \text{\#$c$-colorings of size $n$} $$
-and therefore there must be a $c$-coloring of size $n$ with no MAS($k$).
+echo(r"""
+The number of colorings for some given $c, n, k$ is
+$$ \text{\#col} = c^n $$
+since each of $n$ positions in the coloring may be colored one of $c$ ways.
 
-The number of $c$-colorings of size $n$ is
-$$\phantom{.}c^n.$$
+The probability that a given arbitrary arithmetic subseqence of some arbitrary coloring is monochromatic is
+$$ \text{\% AS is MAS} = \frac{c}{c^k} = c^{1-k} $$
+since of $c^k$ ways that the subsequence may have been colored, only $c$ of them are monochromatic: one for each color.
 
-Upper bounding the number of possible $c$-colorings of size $n$ that contain a MAS($k$) is not so easy. To find $B$, consider the process of choosing some $c$-coloring of size $n$ that contains a MAS($k$). It would look like:
+The number of arithmetic subsequences in a $c$-coloring of size $n$ is
+$$ \text{\#AS}/\text{col} = \frac{n^2-n}{2(k-1)} + \frac{2-k}{2} - \epsilon \text{ for } \epsilon := \sum_{p_0 = 1}^{n-k+1}{\frac{mod(n-p_0,k-1)}{k-1}} $$
+This may be understood by discussing the process of choosing an arithmetic subsequence from a given coloring. One way to do this is with two steps, as follows:
 \begin{align*}
-    & \text{1. Choose the starting point $p_0$ for the MAS($k$)} \\
-    & \text{2. Choose the distance between each item of the MAS($k$)} \\
-    & \text{3. Choose the color of the items in the MAS($k$)} \\
-    & \text{4. Choose the colors of the items not in the MAS($k$)}
+  & \text{1. Choose the starting point $p_0$ of the subsequence} \\
+  & \text{2. Choose the distance between each item of the subseqnce}
 \end{align*}
-If we can find how many choices there are in each step, then, assuming decisionsv are made independently of each other, according to the combinatorical product principle, the total number of choices will be the product of these numbers.
+Step (1.) has $n-k+1$ options, from position $1$ to position $n-k+1$. Step (2.), for a given $p_0$, has $\floor{n-p_0 \over k-1}$ options. As such, the total number of arithmetic subsequences in a $c$-coloring of size $n$ is
+$$ \sum_{p_0=1}^{n-k+1}{\floor{n-p_0 \over k-1}} $$
+And since
+$$ \floor{a \over b} = \frac{a - mod(a,b)}{b} $$
+then we may replace the sum with
+$$ \sum_{p_0=1}^{n-k+1}{\frac{n-p_0}{k-1}} - \sum_{p_0 = 1}^{n-k+1}{\frac{mod(n-p_0,k-1)}{k-1}} $$
+Calling the second sum $\epsilon$, Wolfram$\mid$Alpha tells us that this is equal to
+$$ \phantom{.} \frac{n^2-n}{2(k-1)} + \frac{2-k}{2} - \epsilon . $$
 
-Step (1.) has $n-k+1$ options, but the arithmetic is easier (and still sufficient) by choosing the upper bound $n$. Step (2.) has $\lfloor(n - p_0) / k\rfloor$ choices (if colorings are 1-indexed), but the bound must be independent of other variables, so we choose the bound $n/k$. Step (3.) has $c$ choices, one for each color. Step (4.) has $c^{n-k}$ choices, $c$ choices of color for each $n-k$ items left. Thus, the bound on total number of possibilities is:
-$$ B = n\cdot \frac{n}{k}\cdot c\cdot c^{n-k} = \frac{n^2 \cdot c^{n-k+1}}{k} $$
+Note that since
+$$ 0 \leq mod(n-p_0, k-1) \leq k-2 $$
+then
+$$ \phantom{.} 0 \leq \epsilon \leq {k-2 \over k-1}(n-k+1) \phantom{.} $$
 
-Since we constructed $B$ to be an upper bound, we know that $\text{\#$c$-colorings of size $n$ with some MAS($k$)} \leq B$. All we need is to find an $n$ for which $B < \#\text{$c$-colorings of size $n$}$. We may do this by working backwards:
-\begin{align*}
-    B &< \#\text{$c$-colorings of size $n$} \\
-    \frac{n^2 \cdot c^{n-k+1}}{k} &< c^n \\
-    n^2 \cdot c^{n-k+1} &< k\cdot c^n \\
-    n^2 \cdot c^{1-k} &< k \\
-    n^2 &< k\cdot c^{k-1} \\
-    \lvert n \rvert &< \sqrt{k\cdot c^{k-1}}
-\end{align*}
 
-Thus, given a $c$ and $k$, choose $n \in \mathbb{N} \mid n<\sqrt{k \cdot c^{k-1}}$. Then $\exists c$-coloring $C$ of size $n$ that contain no MAS($k$). Therefore, $W_L(c, k) = \big\lfloor \sqrt{k \cdot c^{k-1}} \big\rfloor - 1$ is a lower bound of $W(c,k)$.
+\subsection{A Lower Bound on $W(c,k)$}
 
-\subsection{The $\zeta$ Function}
-
-We define the $\zeta$ function to be
-$$ \phantom{.} \zeta(c, n, k) = \text{The probability of a random $c$-coloring of size $n$ to have a MAS($k$)} . $$
-
-We empirically derive approximations of the $\zeta$ function for certain $c, n, k$ triplets by generating some number $a$ of $c$-colorings of size $n$; the ratio of generated colorings with a MAS($k$) to $a$ is the approximation. Denote this approximation
-$$ \phantom{.} \zeta_a(c, n, k) = \text{This particular approximation of $\zeta(c, n, k)$ for $a$ attempts} . $$
-
-It is true that
-$$ \phantom{.} \zeta(c, n, k) = 0 \longrightarrow \zeta(c, n, k+1) = 0 .$$
-This is because if a $c$-coloring of size $n$ \textit{did} have a MAS($k+1$), then we could remove one of the items of that MAS thus constructing a MAS($k$). So $\zeta(c, n, k+1) \neq 0 \longrightarrow \zeta(c,n,k) \neq 0$ and, by contrapositive, $\zeta(c,n,k)=0\longrightarrow\zeta(c,n,k+1)=0$.
-
-We generalize this and state as well that
-$$ \phantom{.} \zeta_a(c, n, k) = 0 \longrightarrow \zeta_a(c, n, k+1) = 0 . $$
-\textbf{This is wrong.} It's possible that $\zeta_a(c, n, k) = 0$ only ``by coincidence'', i.e., despite that $\zeta(c,n,k)\neq 0$. So, $\zeta(c,n,k+1)$ may or may not not be $0$ and thus we cannot be sure about $\zeta_a(c,n,k+1)$. We adopt this assertion anyway because it adds a large efficiency boost to trial generation and shouldn't mess anything up too bad.
-
-Also note that
-$$ \phantom{.} \zeta(c, n, k) = 1 \longrightarrow \zeta(c, n+1, k) = 1 . $$
-This is because a $c$-coloring of size $n+1$ contains a $c$-coloring of size $n$. So if we're guaranteed that a $c$-coloring of size $n$ has a MAS($k$) then we're also guaranteed that any containing $c$-coloring of size $n+1$ has the same MAS($k$).
-
-In general,
-$$ \phantom{.} \zeta(c, n+1, k) \geq \zeta(c, n, k) . $$
-
-We may consider $a$ to be a ``confidence'' of the corresponding $\zeta$ approximation, since as $a$ approaches $\infty$, $\zeta_a$ should approach $\zeta$.
-
-\subsection{Approximating $\zeta$}
-
-Note that the probability of some random arithmetic subsquence of size $k$ being monochromatic is
-$$ \frac{c}{c^k} = c^{1-k} $$
-since out of $c^k$ possible colorings of the arithmetic subsequence, $c$ of them are monochromatic.
-
-We'd like to know the number of arithmetic subsequences for a given $c, n, k$. To do so, consider constructing an arithmetic subsequence. It would look something like:
+Take
 \begin{gather*}
-  \text{1. Choose starting point $p_0$.} \\
-  \text{2. Choose distance between items of arithmetic subsequence.}
+  \begin{aligned}
+    n &< \frac{1}{2} \left( 1 + \sqrt{8(k-1)c^{k-1} + (3-2k)^2} \right) \\
+    n &< \frac{1}{2} \left( 1 + \sqrt{1 - 12k + 4k^2 + 8(k-1)c^{k-1} + 8} \right) \\
+    n &< \frac{1}{2} \left( 1 + \sqrt{1-4(3k - k^2 - 2(k-1)c^{k-1} - 2)} \right) \\
+    n &< \frac{1}{2} \left( 1 + \sqrt{1 - 4(2k - k^2 - 2kc^{k-1} - 2 + k + 2c^{k-1})} \right) \\
+    n &< \frac{1}{2} \left(  -(-1) + \sqrt{ (-1)^2 - 4(1)(k-1)(2-k-2c^{k-1}) }  \right) \\
+    0 \leq n &< \frac{1}{2} \left(  -(-1) + \sqrt{ (-1)^2 - 4(1)(k-1)(2-k-2c^{k-1}) }  \right) \text{ since } n \in \mathbb{N}^{+}
+  \end{aligned} \\
+  \begin{aligned}
+    n^2 - n + (k-1)(2-k-2c^{k-1}) &< 0 \text{ by the quadratic formula} \\
+    (2-k)(k-1)+n^2-n &< 2c^{k-1}(k-1) \\
+    (2-k)(k-1) + n^2 - n &< 2c^{k-1}(k-1) \\
+    \frac{2-k}{2} + \frac{n^2 - n}{2(k-1)} &< c^{k-1} \\
+    \left( \frac{2-k}{2} + \frac{n^2 - n}{2(k-1)} \right) c^{1-k} &< 1 \\
+    \left( \frac{2-k}{2} + \frac{n^2 - n}{2(k-1)} - \epsilon \right) c^{1-k} &< 1 \text{ since $\epsilon \geq 0$}
+  \end{aligned} \\
+  (\text{\#AS/col})(\text{\% AS is MAS}) < 1 \\
+  (\text{\#AS/col})(\text{\% AS is MAS})(\text{\#col}) < \text{\#col} \\
+  \text{\#MAS} < \text{\#col} \\
+  \text{Some coloring has no MAS} \\
+  n < W(c,k)
 \end{gather*}
 
-To solve for this, consider assigning $n$ items indicies $1$ through $n$. Step (1.) has $n-k$ choices, and step (2.) has $\floor{ \frac{n-p_0-1}{k-1} }$ choices. Thus,
+Thus
+$$ L(c,k) = \frac{1}{2} \left( 1 + \sqrt{8(k-1)c^{k-1} + (3-2k)^2} \right) $$
+is a lower bound of $W(c,k)$.\footnote{Motivation for the steps of the proof may be seen by reading the proof backwards.}
+
+\subsubsection{Comparison to Existing Bounds}
+
+The first \citep{ThatErdosWasFirst} lower bound on $W(c,k)$, presented by \cite{FirstLowerBound}, was $\sqrt{2(k-1)c^{k-1}}$. Our bound, though stronger, asymptotically approaches Erd{\"o}s' and Rado's bound as $k\to\infty$.
+
+There are certainly better bounds. Called the ``best known (asymptotic) lower bound'' by \cite{BestKnownAsymQuote}, \cite{BestBound} presents that $\forall \epsilon > 0,\ \forall \text{ large enough } k,\ W(2,k) \geq \frac{2^k}{k^{-\epsilon}}$. \cite{PrimeBound} presents that for prime $k$, $W(2,k) > (k-1)2^{k-1}$. \cite{GenBerkBound} presents ``the best known bound for a large interval of'' c that for prime $k$ and $2 \leq c \leq k \leq k$, $W(2,k) > (k-1)^{c-1}$.
+
+Though of these bounds are stronger than our bound, they have constraints, respectively that $k$ is large enough, that $k$ is prime, and that $p$ is prime and $2 \leq c \leq p \leq k$. Since our bound has no such constraints then though it is weaker, it applies more generally and with more ease.
+
+\subsection{The $\zeta$ and $\zeta_a$ Functions}
+
+We define the $\zeta$ function to be
+$$ \phantom{.} \zeta(c, n, k) := \text{The probability of a random $c$-coloring of size $n$ to have a MAS($k$)} . $$
+
+We may approximate $\zeta$ by generating some number $a$ (`a' for `attempts') of $c$-colorings; the ratio between the number of generated colorings with a MAS($k$) and the number of generated colorings is an approximation of $\zeta(c, n, k)$. We call this approximation $\zeta_a(c, n, k)$.
+
+Note that $\zeta(c, n, k) = 1 \longrightarrow \zeta(c, n + 1, k) = 1$. We generalized this to $\zeta_a(c, n, k) = 1 \longrightarrow \zeta_a(c, n + 1, k)$. \textbf{This is wrong}. It is possible that $\zeta_a(c, n, k) = 1$ ``by coincidence'', i.e., despite that $\zeta(c, n, k) \neq 1$. In this case, we know nothing about $\zeta(c,n+1,k)$ and therefore nothing about $\zeta_a(c,n+1,k)$. We adopted this assumption anyway in order to speed up the program. This makes the generated data a somewhat worse approximation.\footnote{Some measures are taken against this issue and will be acknowledged in the Discussion section.}
+
+\subsection{The Shape of $\zeta$}
+""")
+
+if not clargs["--nofun"]:
+  echo(r"{ \scriptsize \ldots The thrilling mathematical sequel to the 2017 movie \textit{The Shape of Water}. }")
+
+echo(r"""
+
+It is reasonable to express $\zeta$ as ``the probability that it is \textit{not} the case that \textit{every} arithmetic subsequence of the given coloring is \textit{not} monochromatic''\footnote{i.e., $\neg\forall AS,\ \neg mono(AS) \longleftrightarrow \exists AS\mid mono(AS)$}. It is then \textit{tempting} to express this as
 \begin{align*}
-  \text{Number of arithmetic subsequences} &= \sum_{p_0=1}^{n-k}{\floor{\frac{n-p_0-1}{k-1}}} \\
-  &\approx \sum_{p_0=1}^{n-k}{\frac{n-p_0-1}{k-1}} \\
-  &= \frac{(n-k)(k+n-1)}{2(k-1)} \text{ according to Wolfram$\vert$Alpha}
+  \zeta &= 1 - (1 - \text{\% AS is MAS})^{\text{\#AS/col}} \\
+        &= 1 - (1 - c^{1-k})^{\frac{n^2-n}{2(k-1)} + \frac{2-k}{2} - \epsilon}
 \end{align*}
 
-Now, $\zeta$, by definition, is the probability that a $c$-coloring of size $n$ has a MAS($k$). Note that this is equal to the probability that it is not the case that every arithmetic subsequence is not monochromatic; this may be reified as:
-\begin{align*}
-  \zeta &\approx 1 - (1 - P(\text{arithmetic subsequence is monochromatic}))^\text{number of arithmetic subsequences} \\
-  &= 1 - (1 - C^{1-k})^\frac{(n-k)(k+n-1)}{2(k-1)}
-\end{align*}
-and note that
-\begin{align*}
-  & \frac{(n-k)(k+n-1)}{2(k-1)} \\
-  =& \frac{(n-k)((k-1)+n)}{2(k-1)} \\
-  =& \frac{(n-k)(k-1) + (n-k)(n)}{2(k-1)} \\
-  =& \frac{n-k}{2} + \frac{n(n-k)}{2(k-1)} \\
-  =& \frac{n-k}{2} + \frac{n((n-1)-(k-1))}{2(k-1)} \\
-  =& \frac{n-k}{2} + \frac{n(n-1)}{2(k-1)} - \frac{n}{2} \\
-  =& \frac{n-k}{2} - \frac{n}{2} + \frac{n^2-n}{2(k-1)} \\
-  =& \frac{n^2-n}{2(k-1)} - \frac{k}{2} .
-\end{align*}
-plugging this back in, we get that
-$$ \zeta \approx 1-(1-c^{1-k})^{\frac{n^2-n}{2(k-1)}-\frac{k}{2}} . $$
-Call this approximation
-$$ \zeta^*. $$
+However, this is not quite correct. This expression uses the probabalistic multiplicaiton rule, which may be applied to two \textit{independent} events. However, one AS being monochromatic is \textit{not} independent from another AS being monochromatic. We can also see that this is incorrect because though 1 is in $\zeta$'s range, it is not in the range of this expression.
 
-Though this turns out to be a fairly decent approximation, it is certainly somewhat incorrect. We know this because by the definition of $W(c,k)$, $\zeta(c, W(c,k), k)$ must be $1$; however, $1$ is not in $\zeta^*$'s domain.
+Despite this, this expression gives us some insight. It leads us to suspect that $\zeta$ looks somewhat like this expression in some capacity\footnote{And, though we no longer have the graphs to support so, we'll state that this is in fact a good approximation.}. Specifically, it will be important to consider the shape of $\zeta$ with respect to $n$. Observe that as $n \to \infty$, this expression $\to 1$ in an asymptotic manner. Note that since $\zeta$ reaches 1 eventually, $\zeta$ is not \textit{actually} asymptotic, so we call it \``textit{near}-asymptotic''.
 
 \subsection{Approximating $W(c,k)$}
 
-Using the $\zeta^*$ approximation of $\zeta$, we may find an approximation $W^*$ of $W$.
-
-We know that $W(c,k) = \text{ the first }n \mid \zeta(c,n,k)=1$, so we may find $W$ by solving for the $n$ satisfying $\zeta=1$ and therefore may find $W^*$ by solving for $n$ satisfying $\zeta^*=1$. However, as previously noted, $\zeta^*$ can never be $1$. Instead, we allow for some ``wiggle room'' by generalizing $\zeta^*$ to $\text{Fit}(\zeta^*)$ for
-$$\text{Fit}(f) = y_0 + Af(q(x - x_0));$$
-$y_0, A, q$, and $x_0$ are later derived empirically.
-
-\begin{align*}
-  \text{Fit}(\zeta^*(n)) &= 1 \\
-  \text{Fit}(1-(1-c^{1-k})^{\frac{n^2-n}{2(k-1)}-\frac{k}{2}}) &= 1 \\
-  \text{let } \beta &= q(n-x_0) \\
-  y_0 + A \left(  1-(1-c^{1-k})^{\frac{\beta^2 - \beta}{2(k-1)}-\frac{k}{2}}  \right) &= 1 \\
-  (1-c^{1-k})^{\frac{\beta^2 - \beta}{2(k-1)}-\frac{k}{2}} &= 1 - \frac{1-y_0}{A} \\
-  \frac{\beta^2 - \beta}{2(k-1)} - \frac{k}{2} = log_{1-c^{1-k}}\left( 1-\frac{1-y_0}{A} \right) \\
-  \text{let } \chi &= \left( 2(k-1) \right) \left( \log_{1-c^{1-k}} \left( 1 - \frac{1-y_0}{A} \right) \right) \\
-  \beta^2 - \beta = \chi
-  \frac{\beta^2 - \beta}{2(k-1)} - \frac{k}{2} &= \chi \\
-\end{align*}
-which is true if $\beta^2 - \beta - \chi = 0$; this is satisfied by
-\begin{align*}
-  \beta &= \frac{-(-1) \pm \sqrt{(-1)^2 - 4(1)(-\chi)}}{2} \\
-  &= (1/2)(1+\sqrt{1+4\chi})
-\end{align*}
-thus
-\begin{align*}
-  \beta &= (1/2)(1+\sqrt{1+4\chi}) \\
-  q(n-x_0) &= (1/2)(1+\sqrt{1+4\chi}) \\
-  n &= x_0 + \frac{1 + \sqrt{1+4\chi}}{2q}
-\end{align*}
-
-Thus,
-$$ \phantom{.} W(c,k) \approx x_0 + \frac{1 + \sqrt{1 + 4    \left( 2(k-1) \right) \left( \log_{1-c^{1-k}} \left( 1 - \frac{1-y_0}{A} \right) \right)    }}{2q} . $$
+If we generate $\zeta_a(c, n, k)$ approximations iterating over $n$, then we may approximate $W(c, k)$ as the first $n$ for which $\zeta_a(c, n, k) = 1$. We call this result $V$. Note that this is not a ``mathematical variable'' but rather the result of an algorithm which may change each time the algorithm is run.
 
 \section{Materials and Methods}
 
-The program generated different $\zeta_a(c,n,k)$ approximations and was roughly the following:
+The program was roughly the following:
 
-\begin{algorithm}[H]
-\begin{algorithmic}
+\begin{algorithm}%[H]
+\begin{algorithmic}[1]
 
 \Function{generate-success-count}{$c$, $n$, $k$, $a$} \Comment{Approximates $a\cdot\zeta_a(c,n,k)$}
   \State $successes \gets 0$
@@ -409,13 +383,13 @@ The program generated different $\zeta_a(c,n,k)$ approximations and was roughly 
 
 \Function{trials}{}
   \For{$c$ \textbf{in} $[2]$} \Comment{Only concerned with $c=2$}
-    \For{$n$ \textbf{in} $[1, 2, ...]$} \Comment{Unboundedly increment $n$}
-      \For{$a$ \textbf{in} $[5000, 10000, 15000, ..., 500000]$}
-        \For{$k$ \textbf{in} $[1, 2, ..., k]$}
+    \For{$k$ \textbf{in} $[1, 2, ...]$} \Comment{Unboundedly increment $k$}
+      \For{$a$ \textbf{in} $[5\text{k}, 10\text{k}, 15\text{k}, ..., 500\text{k}]$} \Comment{`k' denoting ``thousand''}
+        \For{$n$ \textbf{in} $[k, k+1, k+2, ...]$} \Comment{Unboundedly increment $n$}
           \State $successes \gets \Call{generate-success-count}{c, n, k, a}$
-          \State \Call{record-data}{$c$, $n$, $k$, $a$, $successes$}
-          \If{$successes = 0$} \Comment{$\zeta_a(c,n,k)=0$ so $\forall k'>k(\zeta_a(c,n,k')=0)$}
-            \State \textbf{break} \Comment{So no need to test any $k'>k$.}
+          \If{$successes = a$} \Comment{If 100\% success rate}
+            \State \Call{record-data}{$c$, $k$, $a$, $n$} \Comment{Record $V=n$ for $c, k, a$}
+            \State \textbf{skip to next $a$} \Comment{$\zeta_a(c,n,k)=1$ so know $\forall n'>n\ ,\zeta_a(c,n',k)=1$ so skip all $n'$}
           \EndIf
         \EndFor
       \EndFor
@@ -426,14 +400,20 @@ The program generated different $\zeta_a(c,n,k)$ approximations and was roughly 
 \end{algorithmic}
 \end{algorithm}
 
-In reality, the program is somewhat more complicated handling more IO and running on multiple threads. However, this simplified version is sufficient to understand the paper.
+The actual source code is available online at \url{https://github.com/Quelklef/random-algorithms/tree/7e5c253e1590c6bf2c28fd6bd9717d98ce49020c/Coloring}.
 
 \section{Results}
 
+The following are graphs of $k$ vs $V$ from the trial data. Each graph was approximated with an exponential curve
+$$ E(k) := y_0 + A \cdot e^{q \cdot (k - x_0)} $$
+
 """)
 
-def fig_latex(latex):
-  return r"""\begin{figure}[H] %s \end{figure}""" % latex
+def fig_latex(latex, caption=""):
+  if caption:
+    return r"\begin{figure}[H] %s \caption{" + caption + "} \end{figure}" % latex
+  else:
+    return r"\begin{figure}[H] %s \end{figure}" % latex
 
 def take_while(pred, seq):
   i = 0
@@ -445,116 +425,117 @@ def take_while(pred, seq):
   return result
 
 As = list(map(itemgetter(0), db.execute("SELECT DISTINCT attempts FROM data ORDER BY attempts")))
-ns = list(map(itemgetter(0), db.execute("SELECT DISTINCT n FROM data ORDER BY n")))
-ks = list(map(itemgetter(0), db.execute("SELECT DISTINCT k FROM data ORDER BY k")))
 
-echo("\subsection{$k$ vs $V$}")
-xs, ys = unzip(map(lambda r: (r[0], r[1]), db.execute("SELECT k, MIN(n) FROM data WHERE attempts=successes GROUP BY k, attempts")))
-filename = graph(xs, ys, "k", "V", title="k vs V", filename="k_v.png")
-echo(fig_latex(img_latex(filename)))
+png_locs = []
+paramss = []
+for a in As:
+  xs, ys = unzip(2, db.execute("SELECT k, n FROM data WHERE attempts=?", (a,)))
 
-echo("\subsection{$k$ vs $\zeta$ for given $n$}")
-params_xs = []
-params_ys = []
-
-rows = db.execute("SELECT n, k, attempts, successes FROM data WHERE successes <> 0 AND successes <> attempts ORDER BY n ASC, attempts ASC, k DESC").fetchall()
-for n in ns:
-  plt.suptitle(f"k vs zeta for n={n}")
+  plt.suptitle(f"k vs V (a={a})")
   plt.xlabel("k")
-  plt.ylabel("zeta")
-  filename = f"n={n}.png"
+  plt.ylabel("V")
+  plt.scatter(xs, ys)
+  params = fit(xs, ys, exponential, p0=[0, 1, .5, 0])
+  paramss.append(params)
+
+  filename = f"k-v-{a}.png"
   fileloc = os.path.join(target_dir, filename)
-
-  xs, ys = [], []  # Leak this variable from the next loop
-  for a in As:
-    relevant_rows = take_while(lambda r: r[0] == n and r[2] == a, rows)
-    if relevant_rows:
-      xs, ys = unzip(list(map(lambda r: (r[1], r[3] / r[2]), relevant_rows)))
-      colors = [(1, 0, 1-(a/max(As)))] * len(xs)
-      plt.scatter(xs, ys, c=colors, s=50)
-
-  # Tried: exponenial, arctan, tanh, reciprocal, logistic
-  if len(xs) >= 4:
-    fitting = get_fitting_curve(n=n)
-    params = fit(xs, ys, fitting, [1, 1, 1, 1], linewidth=3)
-
-    params_xs.append(n)
-    params_ys.append(params)
-
-  print(f"Generated {fileloc}.")
   plt.savefig(fileloc)
+  print(f"{fileloc} generated.")
+  png_locs.append(fileloc)
+
   plt.clf()
 
-  echo(fig_latex(img_latex(fileloc)))
-
-for i, param_name in enumerate(["x0", "A", "q", "y0"]):
-  plt.suptitle(f"n vs {param_name}")
-  plt.xlabel("n")
-  plt.ylabel(param_name)
-  # The filename should have underscores rather than dashes.
-  # If it uses dashes, matplotlib breaks for some reason
-  filename = f"n_fitting_{param_name}.png"
-  fileloc = os.path.join(target_dir, filename)
-
-  plt.scatter(params_xs, list(map(lambda t: t[i], params_ys)))
-
-  print(f"Generated {fileloc}.")
-  plt.savefig(fileloc)
-  plt.clf()
-
-  echo(fig_latex(img_latex(fileloc)))
+echo(r"\begin{figure}[H] \centering")
+for i, loc in enumerate(png_locs):
+  if i % 2 == 0:
+    echo(r"\end{figure} \begin{figure}[H] \centering")
+  echo(img_latex(loc))
+echo(r"\caption{$k$ vs $V$ curves for fixed values of $a$, with an exponential fit.} \label{fig:v} \end{figure}")
 
 echo(r"""
-\subsection{$n$ vs $\zeta$ for given $k$}
+The found values of $y_0$, $A$, $q$, and $x_0$ versus $a$ are shown below.
 """)
-params_xs = []
-params_ys = []
 
-rows = db.execute("SELECT n, k, attempts, successes FROM data ORDER BY k ASC, attempts ASC").fetchall()
-for k in ks:
-  plt.suptitle(f"n vs zeta for k={k}")
-  plt.xlabel("n")
-  plt.ylabel("zeta")
-  filename = f"k={k}.png"
+begin_latex = r"\begin{figure}[H] \centering"
+end_latex = r"\end{figure}"
+
+parameter_point_estimates = {}
+
+echo(begin_latex)
+for i, param in enumerate(["y_0", "A", "q", "x_0"]):
+  if i != 0 and i % 2 == 0:
+    echo(end_latex)
+    echo(begin_latex)
+
+  plt.suptitle(f"a vs {param}")
+  plt.xlabel("a")
+  plt.ylabel(param)
+
+  filename = f"params-{param}.png"
   fileloc = os.path.join(target_dir, filename)
 
-  xs, ys = [], []
-  for a in As:
-    relevant_rows = take_while(lambda r: r[1] == k and r[2] == a, rows)
-    if relevant_rows:
-      xs, ys = unzip(list(map(lambda r: (r[0], r[3] / r[2]), relevant_rows)))
-      colors = [(1, 0, 1-(a/max(As)))] * len(xs)
-      plt.scatter(xs, ys, c=colors, s=50)
+  xs = As
+  ys = list(map(itemgetter(i), paramss))
+  parameter_point_estimates[param] = mean(ys)
+  plt.scatter(xs, ys)
 
-  if len(xs) >= 4:
-    fitting = get_fitting_curve(k=k)
-    params = fit(xs, ys, fitting, [1, 1, 1, 1], linewidth=3)
+  #params = fit(xs, ys, linear, [1, 1])
 
-    params_xs.append(k)
-    params_ys.append(params)
+  echo(img_latex(fileloc))
+  #echo(r"\\")
+  #echo(params_latex(exponential, params))
 
-  print(f"Generated {fileloc}.")
+  print(f"{fileloc} generated.")
   plt.savefig(fileloc)
   plt.clf()
-
-  echo(fig_latex(img_latex(fileloc)))
-
-for i, param_name in enumerate(["x0", "A", "q", "y0"]):
-  plt.suptitle(f"k vs {param_name}")
-  plt.xlabel("k")
-  plt.ylabel(param_name)
-  filename = f"n-fitting-{param_name}.png"
-  fileloc = os.path.join(target_dir, filename)
-
-  plt.scatter(params_xs, list(map(lambda t: t[i], params_ys)))
-
-  print(f"Generated {fileloc}.")
-  plt.savefig(fileloc)
-  plt.clf()
-
-  echo(fig_latex(img_latex(fileloc)))
+echo(r"\caption{$a$ versus parameter values for the previous exponential fittings.} \label{fig:fit} " + end_latex)
 
 echo(r"""
+
+\section{Discussion}
+\label{sec:discussion}
+
+We expect $V$ to only be a mediocre approximation of $W(c,k)$. This is because of $\zeta$'s near-asymptotic behavior. Since a $\zeta$ value \textit{close to} $1$ may result in a $\zeta_a$ value \textit{of} $1$, and since $\zeta$ is near-asymptotic, and therefore has many consecutive values close to 1 before actually reaching 1, then a $\zeta_a$ value may be $1$ long before $\zeta$ is 1.
+
+This issue is further exacerbated by our assumption that $\zeta_a(c, n, k) = 1 \longrightarrow \zeta_a(c, n+1, k) = 1$; if we did not assume this, then we may, after finding an $n \mid \zeta_a = 1$, find an $n' > n \mid \zeta_a \neq 1$, thus showing that $n < W(c,k)$ since certainly $n' < W(c,k)$. Using this method, these lower ``false positive'' $n$s for which $\zeta_a = 1$ could be detected.\footnote{A notable downside to this method is that it does not give a condition for stopping iteration over $n$.}
+
+The hope was that the generation of trials for several $a$ values could fix this issue. Note that $a$ can be seen as a kind of ``confidence value''. As $a$ increases, we'd expect the ``correctness'' of the results to increase as well, since there are more trials and therefore random variance should lessen. We hoped that, though \textit{each} $a$ would have the issues mentioned above, we could see a pattern emerging over the iteration of \textit{many} $a$s, and this pattern would reveal the true curve of $V$.
+
+However, this did not happen. The graphs of $a$ against the four parameters $y_0$, $A$, $q$, and $x_0$ do not have a strong enough shape to justify any extrapolation. This is possibly due simply to not having enough trials; however, it could also be because an exponential fit is inappropriate. This would not be surprising as fitting exponentially was a total guess; a more informed fit would require knowing the shape of $W(c,k)$, which we don't know: if we did, then we wouldn't have had to do this research.\footnote{One may object that an approximation is nearly useless without \textit{already} knowing the shape of the curve. This is valid and a major pitfall of this paper.}
+
+The second-best options are to approximate these parameters either with the value given by the highest $a$, or an average over all $a$s. We approximate them with an average because the graphs seem to indicate that different $a$s actually have a minimal effect on the ``correctness'' of the values, so we may as well use them all.
+
+""")
+
+echo(r"\begin{figure}[H] \caption{Point estimates of parameters to exponential fits of $V$} \centering \begin{tabular}{c|l}")
+echo(" \\\\\n".join(
+  "$" + str(param) + "$ & $" + str(round(est, 3)) + "$" for param, est in parameter_point_estimates.items()
+))
+echo(r"\end{tabular} \label{fig:est} \end{figure}")
+
+globals().update(**parameter_point_estimates)
+def W_est(k):
+  return y_0 + A * np.exp(q * (k - x_0))
+
+echo(r"""
+
+Thus, an approximation of $W$ is:
+$$ W(2,k) \approx [[y_0:.3f]] + [[A:.3f]] e^{[[q:.3f]] \cdot (k - [[x_0:.3f]])} $$
+
+We may compare this to known W(2,k) numbers
+\begin{figure}[H] \centering
+\caption{Comparison of known $W(2,k)$ values to estimated values.}
+\[ \begin{array}{c|c|c|c}
+$k$ & \text{Known value} & \text{Approximation} & \lvert \text{Difference} \rvert \\
+\hline
+3 & 9    & [[W_est(3):.2f]] & [[abs(W_est(3)-9   ):.2f]] \\
+4 & 35   & [[W_est(4):.2f]] & [[abs(W_est(4)-35  ):.2f]] \\
+5 & 178  & [[W_est(5):.2f]] & [[abs(W_est(5)-178 ):.2f]] \\
+6 & 1132 & [[W_est(6):.2f]] & [[abs(W_est(6)-1132):.2f]]
+\end{array} \]
+\end{figure}
+\ldots and see that the approximation is not very good. Since it overestimates at first and underestimates lower on, the shape of the approximation seems to be too shallow. The error should only increase for higher $k$s, which is unfortunate because higher $k$s are of more significance\footnote{Due to $W$ being easier to find for lower $k$s}. We view this result as evidence that the actual shape of $W$ is not exponential despite the $k$ vs $V$ graphs fitting seductively well to exponential curves.
 \newpage
 \bibliographystyle{apa}
 \bibliography{references}
