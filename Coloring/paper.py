@@ -400,7 +400,7 @@ The program was roughly the following:
 \end{algorithmic}
 \end{algorithm}
 
-The actual source code is available online at \url{https://github.com/Quelklef/random-algorithms/tree/7e5c253e1590c6bf2c28fd6bd9717d98ce49020c/Coloring}.
+The actual source code is available online at \url{https://github.com/Quelklef/random-algorithms/tree/ec25769af7980f9cedd7eb9a9be596bde6e4d642/Coloring}.
 
 \section{Results}
 
