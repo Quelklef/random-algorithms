@@ -167,15 +167,8 @@ echo(r"""
 \usepackage[utf8]{inputenc}
 \usepackage{mathtools}
 
-\title{A Lower Bound and an Approximation for The Van der Waerden Number function $W(c,k)$}
-""")
-
-if not clargs["--nofun"]:
-  echo(r"\author{Eli Maynard\thanks{With help from Noah Gleason and Ryan Tse of Montgomery Blair High School}\\{\small Advised by William Gasarch of the University of Maryland}")
-else:
-  echo(r"\author{Eli Maynard}")
-
-echo(r"""
+\title{A Lower Bound and an Approximation for the Van der Waerden Number Function $W(c,k)$}
+\author{Eli Maynard\thanks{With help from Noah Gleason and Ryan Tse of Montgomery Blair High School}\\{\small Advised by William Gasarch of the University of Maryland}}
 \date{November 2018}
 
 \usepackage{natbib}
@@ -193,9 +186,9 @@ echo(r"""
 \usepackage{mdframed}
 
 \usepackage{setspace}
-\linespread{2}
+\linespread{1.5}
 
-\usepackage[a4paper, total={6in, 9in}]{geometry}
+\usepackage[a4paper,margin=1in]{geometry}
 
 \setlength{\parskip}{\baselineskip}
 
