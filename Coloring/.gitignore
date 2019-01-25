@@ -9,5 +9,7 @@ __pycache__/
 *.tex
 *.log
 *.pdf
+*.bbl
+*.blg
 
 data.db
