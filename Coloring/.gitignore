@@ -1,8 +1,13 @@
+# Data handling
+data.db
 data/
-venv/
 crunched/
+
+# Python folders
+venv/
 __pycache__/
 
+# LaTeX temp files
 *.aux
 *.log
 *.out
@@ -12,4 +17,11 @@ __pycache__/
 *.bbl
 *.blg
 
-data.db
+# Nim compiled executables
+*
+!*.*
+!*/
+
+# Nim temp files
+nimcache
+

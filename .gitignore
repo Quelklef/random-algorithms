@@ -1,7 +1,0 @@
-# Nim compiled executables
-*
-!*.*
-!*/
-
-# Nim temp files
-nimcache
